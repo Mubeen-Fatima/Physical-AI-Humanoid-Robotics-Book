@@ -1,0 +1,58 @@
+# Chapter 3: Robot Kinematics and Coordinate Frames
+
+## Learning Objectives
+
+- Understand forward and inverse kinematics
+- Work with transformation matrices
+- Apply coordinate frame transformations
+- Implement basic kinematic chains
+
+## Prerequisites
+
+- Chapters 1-2
+- Linear algebra basics
+- Python/NumPy familiarity
+
+## Introduction
+
+Robot kinematics is the study of motion without considering forces. Understanding how to transform between coordinate frames and calculate joint positions is essential for controlling physical AI systems.
+
+## Core Concepts
+
+### Transformation Matrices
+
+```python
+import numpy as np
+
+def translation_matrix(dx, dy, dz):
+    """Create 4x4 homogeneous transformation for translation"""
+    return np.array([
+        [1, 0, 0, dx],
+        [0, 1, 0, dy],
+        [0, 0, 1, dz],
+        [0, 0, 0, 1]
+    ])
+
+def rotation_z(theta):
+    """Rotation around Z axis"""
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([
+        [c, -s, 0, 0],
+        [s,  c, 0, 0],
+        [0,  0, 1, 0],
+        [0,  0, 0, 1]
+    ])
+```
+
+## Summary
+
+This chapter covered fundamental kinematics concepts essential for robot control.
+
+## Exercises
+
+1. Implement a 2-link planar robot arm forward kinematics
+2. Calculate inverse kinematics for a simple manipulator
+
+---
+
+**Chapter Progress**: 3 of 26 | **Part**: Foundations (1/7)

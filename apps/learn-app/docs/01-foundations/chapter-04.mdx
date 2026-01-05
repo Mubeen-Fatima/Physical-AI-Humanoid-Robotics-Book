@@ -1,0 +1,56 @@
+# Chapter 4: Sensors and Perception Fundamentals
+
+## Learning Objectives
+
+- Understand common robotic sensors (LiDAR, cameras, IMU)
+- Process sensor data for perception
+- Implement basic computer vision pipelines
+- Apply sensor calibration techniques
+
+## Prerequisites
+
+- Chapters 1-3
+- Basic probability and statistics
+- OpenCV or similar experience helpful
+
+## Introduction
+
+Physical AI systems rely on sensors to perceive their environment. This chapter introduces the sensors you'll work with throughout this book and fundamental perception techniques.
+
+## Core Concepts
+
+### Sensor Types
+
+- **Vision**: Cameras (RGB, depth, stereo)
+- **Range**: LiDAR, ultrasonic, radar
+- **Inertial**: IMU (accelerometer + gyroscope)
+- **Proprioceptive**: Joint encoders, force/torque sensors
+- **Tactile**: Pressure sensors, skin sensors
+
+### Basic Image Processing
+
+```python
+import cv2
+import numpy as np
+
+def detect_edges(image_path):
+    """Simple edge detection pipeline"""
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    blurred = cv2.GaussianBlur(img, (5, 5), 0)
+    edges = cv2.Canny(blurred, 50, 150)
+    return edges
+```
+
+## Summary
+
+Understanding sensors is fundamental to building perceptive physical AI systems. This chapter introduced the sensor ecosystem used in modern robotics.
+
+## Exercises
+
+1. Calibrate a camera using checkerboard pattern
+2. Implement obstacle detection using simulated LiDAR data
+3. Fuse IMU and visual odometry
+
+---
+
+**Chapter Progress**: 4 of 26 | **Part**: Foundations (1/7)
