@@ -1,0 +1,384 @@
+# Chapter 26: Capstone Project - Building a Complete Physical AI System
+
+## Learning Objectives
+
+- Integrate all concepts from Chapters 1-25
+- Design and build an end-to-end physical AI system
+- Deploy a real-world robot application
+- Demonstrate mastery of the complete stack
+- Present and document your capstone project
+
+## Prerequisites
+
+- **ALL** previous chapters (1-25)
+- Access to robot hardware or high-fidelity simulation
+- Project management and documentation skills
+
+## Introduction
+
+This capstone integrates everything you've learned: ROS 2, simulation, Isaac, humanoid control, and VLA models. You'll build a complete physical AI system from specification to deployment.
+
+## Project Options
+
+### Option 1: Warehouse Humanoid Assistant
+
+**Goal**: Deploy a humanoid robot in a warehouse for package sorting
+
+**Requirements**:
+- Navigate warehouse environment autonomously
+- Detect and classify packages using vision
+- Pick packages and place in correct bins
+- Handle dynamic obstacles (humans, forklifts)
+- Natural language interface for task assignment
+
+**Technology Stack**:
+- **Simulation**: Isaac Sim for development and testing
+- **Perception**: RT-2 or similar VLA model for vision-language understanding
+- **Navigation**: ROS 2 Nav2 stack
+- **Manipulation**: Whole-body control (Chapter 21)
+- **Locomotion**: Bipedal walking controller (Chapter 20)
+
+### Option 2: Kitchen Assistant Robot
+
+**Goal**: Robot that can prepare simple meals following recipes
+
+**Requirements**:
+- Understand recipe instructions (language)
+- Locate ingredients and tools (vision + spatial reasoning)
+- Manipulate objects (grasping, pouring, stirring)
+- Coordinate bimanual tasks
+- Detect task completion and errors
+
+**Technology Stack**:
+- **Simulation**: Gazebo + Unity for photorealistic rendering
+- **VLA**: Custom model trained on cooking demonstrations
+- **Perception**: Multimodal (RGB-D, tactile, force sensors)
+- **Control**: Task-space control with compliance
+
+### Option 3: Outdoor Delivery Robot
+
+**Goal**: Autonomous robot for last-mile package delivery
+
+**Requirements**:
+- Navigate outdoor environments (sidewalks, crosswalks)
+- Robust to weather and lighting changes
+- Detect and avoid pedestrians
+- Secure package compartment
+- GPS + visual odometry localization
+
+**Technology Stack**:
+- **Simulation**: Gazebo with outdoor environments
+- **Perception**: LiDAR + camera fusion
+- **Navigation**: Nav2 with dynamic obstacle avoidance
+- **Mapping**: SLAM with long-term localization
+
+## Capstone Template
+
+### Phase 1: Specification (Week 1)
+
+```markdown
+# Project Specification
+
+## 1. Problem Statement
+- What real-world problem are you solving?
+- Who are the stakeholders?
+- What is the scope?
+
+## 2. System Requirements
+### Functional Requirements
+- FR-001: Robot shall navigate from point A to B in <30 seconds
+- FR-002: Robot shall detect objects with >90% accuracy
+- ...
+
+### Non-Functional Requirements
+- NFR-001: System shall run at >10 Hz
+- NFR-002: Maximum response time: 200ms
+- ...
+
+## 3. Hardware/Software Stack
+- Robot platform: (e.g., Unitree H1, custom robot)
+- Sensors: (e.g., RealSense D435, Velodyne LiDAR)
+- Compute: (e.g., NVIDIA Jetson AGX Orin)
+- Software: ROS 2 Humble, Isaac Sim, PyTorch
+
+## 4. Success Criteria
+- Quantitative metrics
+- Test scenarios
+- Acceptance thresholds
+```
+
+### Phase 2: Architecture Design (Week 2)
+
+```python
+# system_architecture.py
+"""
+System Architecture Document
+
+1. High-Level Architecture:
+
+   ┌─────────────────────────────────────────┐
+   │         User Interface Layer            │
+   │  (Natural Language, Mobile App, Web)    │
+   └─────────────────┬───────────────────────┘
+                     │
+   ┌─────────────────▼───────────────────────┐
+   │      Decision & Planning Layer          │
+   │  (Task Planner, Behavior Trees, VLA)    │
+   └─────────────────┬───────────────────────┘
+                     │
+   ┌─────────────────▼───────────────────────┐
+   │       Perception & Mapping Layer        │
+   │  (Object Detection, SLAM, Scene Graph)  │
+   └─────────────────┬───────────────────────┘
+                     │
+   ┌─────────────────▼───────────────────────┐
+   │         Control Layer                   │
+   │  (Locomotion, Manipulation, WBC)        │
+   └─────────────────┬───────────────────────┘
+                     │
+   ┌─────────────────▼───────────────────────┐
+   │         Hardware Abstraction Layer      │
+   │  (ROS 2 Drivers, Sensor Interfaces)     │
+   └─────────────────────────────────────────┘
+
+2. ROS 2 Node Graph:
+
+   /camera_driver → /object_detector → /task_planner → /motion_controller
+                  ↘                   ↗
+                    /slam_node ───────
+```
+
+### Phase 3: Implementation (Weeks 3-6)
+
+**Week 3: Perception Pipeline**
+```python
+# perception_node.py
+class PerceptionNode(Node):
+    def __init__(self):
+        super().__init__('perception_node')
+
+        # Subscribers
+        self.rgb_sub = self.create_subscription(
+            Image, '/camera/rgb', self.rgb_callback, 10
+        )
+        self.depth_sub = self.create_subscription(
+            Image, '/camera/depth', self.depth_callback, 10
+        )
+
+        # Publishers
+        self.detections_pub = self.create_publisher(
+            DetectionArray, '/detections', 10
+        )
+
+        # Load models
+        self.vla_model = self.load_vla_model()
+
+    def rgb_callback(self, msg):
+        # Convert ROS image to numpy
+        image = self.bridge.imgmsg_to_cv2(msg, "rgb8")
+
+        # Run detection
+        detections = self.vla_model.detect(image)
+
+        # Publish
+        self.publish_detections(detections)
+```
+
+**Week 4: Navigation & Localization**
+```python
+# navigation_node.py
+# Implement Nav2 integration, waypoint following, obstacle avoidance
+```
+
+**Week 5: Manipulation & Control**
+```python
+# manipulation_node.py
+# Implement whole-body control, grasping, task execution
+```
+
+**Week 6: Integration & Testing**
+```python
+# integration_tests.py
+def test_full_pipeline():
+    """Test complete system end-to-end"""
+    # Initialize system
+    robot = RobotSystem()
+
+    # Test scenario: Pick and place
+    robot.receive_command("Pick up the red block and place it in the blue bin")
+
+    # Execute
+    success = robot.execute()
+
+    assert success, "Task failed"
+```
+
+### Phase 4: Simulation Validation (Week 7)
+
+```python
+# simulation_tests.py
+import pytest
+from isaac_sim import SimulationApp
+
+class TestCapstoneSimulation:
+    def test_navigation_accuracy(self):
+        """Test navigation to waypoints"""
+        sim = SimulationApp()
+        robot = sim.add_robot("humanoid")
+
+        waypoints = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+
+        for wp in waypoints:
+            robot.navigate_to(wp)
+            final_pos = robot.get_position()
+
+            assert np.linalg.norm(final_pos - wp) < 0.1, "Navigation error too large"
+
+    def test_object_manipulation(self):
+        """Test pick and place success rate"""
+        sim = SimulationApp()
+        robot = sim.add_robot("humanoid")
+
+        successes = 0
+        for trial in range(100):
+            object_pose = self.randomize_object_pose()
+            success = robot.pick_and_place(object_pose, target_bin)
+            if success:
+                successes += 1
+
+        success_rate = successes / 100
+        assert success_rate > 0.90, f"Success rate too low: {success_rate}"
+```
+
+### Phase 5: Real-World Deployment (Week 8)
+
+```python
+# deployment_checklist.py
+"""
+Pre-Deployment Checklist:
+
+Hardware:
+□ All sensors calibrated
+□ Emergency stop tested
+□ Battery life > 2 hours
+□ Communication links stable
+
+Software:
+□ All ROS 2 nodes launch successfully
+□ Logging and monitoring configured
+□ Error recovery behaviors implemented
+□ Performance meets real-time requirements (>10 Hz)
+
+Safety:
+□ Collision avoidance tested
+□ E-stop accessible
+□ Safety zones configured
+□ Human detection working
+
+Testing:
+□ Dry run in controlled environment
+□ Failure mode testing completed
+□ Recovery procedures documented
+"""
+
+def deploy_to_hardware():
+    # Build for target hardware
+    subprocess.run(['colcon', 'build', '--cmake-args', '-DTARGET=jetson'])
+
+    # Deploy to robot
+    subprocess.run(['rsync', '-avz', 'install/', 'robot@192.168.1.100:~/robot_ws/'])
+
+    # Launch remotely
+    subprocess.run(['ssh', 'robot@192.168.1.100', 'ros2 launch capstone_pkg full_system.launch.py'])
+```
+
+### Phase 6: Documentation & Presentation (Week 9)
+
+```markdown
+# Final Project Report
+
+## Executive Summary
+- 1-page overview of the project
+
+## Technical Report
+1. Introduction & Motivation
+2. Related Work
+3. System Design
+4. Implementation Details
+5. Experiments & Results
+6. Discussion
+7. Future Work
+8. Conclusion
+
+## Appendices
+- A. ROS 2 Node Architecture
+- B. Performance Benchmarks
+- C. Code Repository
+- D. Video Demonstrations
+```
+
+## Evaluation Rubric
+
+| Criteria | Weight | Description |
+|----------|--------|-------------|
+| **Technical Depth** | 30% | Complexity and sophistication of implementation |
+| **Integration** | 20% | How well components work together |
+| **Performance** | 20% | Meets quantitative success criteria |
+| **Documentation** | 15% | Clarity and completeness of documentation |
+| **Presentation** | 15% | Quality of demo and explanation |
+
+## Example Projects from Previous Cohorts
+
+### Project: "Autonomous Grocery Stocker"
+- **Team**: 3 students
+- **Duration**: 9 weeks
+- **Result**: 85% success rate stocking shelves in simulation, 70% on real robot
+- **Key Innovation**: Custom VLA model fine-tuned on grocery dataset
+
+### Project: "Disaster Response Humanoid"
+- **Team**: 2 students
+- **Duration**: 9 weeks
+- **Result**: Successfully navigated rubble, opened doors, carried objects
+- **Key Innovation**: Multi-contact locomotion controller
+
+## Final Thoughts
+
+This capstone demonstrates you've mastered the complete physical AI stack:
+
+✅ **Foundation** (Part 1): Understanding of physical AI principles
+✅ **ROS 2** (Part 2): Robot software infrastructure
+✅ **Simulation** (Part 3): Safe development and testing
+✅ **Isaac** (Part 4): GPU-accelerated learning
+✅ **Humanoids** (Part 5): Advanced locomotion and manipulation
+✅ **VLA** (Part 6): Foundation models for robotics
+✅ **Capstone** (Part 7): **End-to-end system integration**
+
+You're now ready to build the future of physical AI!
+
+## Submission Requirements
+
+1. **Code Repository**: GitHub with README, documentation, and setup instructions
+2. **Video Demo**: 3-5 minute demonstration of working system
+3. **Technical Report**: 10-15 pages following template
+4. **Presentation**: 15-minute presentation + 5 minutes Q&A
+
+## Resources
+
+- **Office Hours**: Weekly support from instructors
+- **Discord Community**: Peer collaboration and help
+- **Hardware Lab**: Access to robots and sensors
+- **Compute Credits**: Cloud GPU for training (NVIDIA, AWS)
+
+## Next Steps
+
+Congratulations on completing the Physical AI & Humanoid Robotics textbook! Continue your journey:
+
+- Join robotics research labs
+- Contribute to open-source robotics projects
+- Start a robotics company
+- Pursue graduate studies in robotics
+- Build the future of embodied AI!
+
+---
+
+**Chapter Progress**: 26 of 26 | **Part**: Capstone Project (7/7) | **🎓 Course Complete!**

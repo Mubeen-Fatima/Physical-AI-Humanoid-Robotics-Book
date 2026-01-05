@@ -1,0 +1,327 @@
+# Chapter 24: Multimodal Perception and Embodied AI
+
+## Learning Objectives
+
+- Combine vision, language, touch, and audio for robot perception
+- Understand embodied question answering (EQA)
+- Implement active perception strategies
+- Use world models for planning
+- Learn about spatial intelligence in foundation models
+
+## Prerequisites
+
+- Chapter 23 (VLA fundamentals)
+- Multimodal learning basics
+- Understanding of transformer architectures
+
+## Introduction
+
+Embodied AI agents don't just process static data—they actively explore, interact, and build internal representations of the world. This chapter covers multimodal perception and spatial understanding for physical AI.
+
+## Core Concepts
+
+### 1. Multimodal Sensor Fusion
+
+```python
+# multimodal_perception.py
+import torch
+import torch.nn as nn
+
+class MultimodalPerceptionModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Vision encoder (RGB + Depth)
+        self.rgb_encoder = nn.Sequential(
+            nn.Conv2d(3, 64, 7, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 3),
+            nn.ReLU()
+        )
+
+        self.depth_encoder = nn.Sequential(
+            nn.Conv2d(1, 32, 7, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3),
+            nn.ReLU()
+        )
+
+        # Audio encoder (from microphone array)
+        self.audio_encoder = nn.Sequential(
+            nn.Conv1d(4, 64, 16, stride=2),  # 4 channels
+            nn.ReLU(),
+            nn.Conv1d(64, 128, 8, stride=2),
+            nn.ReLU()
+        )
+
+        # Tactile encoder (from fingertip sensors)
+        self.tactile_encoder = nn.Sequential(
+            nn.Linear(32, 64),  # 32 tactile sensors
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU()
+        )
+
+        # Proprioception encoder (joint angles, velocities)
+        self.proprio_encoder = nn.Sequential(
+            nn.Linear(14, 64),  # 7 joints * (angle + velocity)
+            nn.ReLU(),
+            nn.Linear(64, 128),
+            nn.ReLU()
+        )
+
+        # Cross-modal fusion transformer
+        self.fusion = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=512, nhead=8),
+            num_layers=4
+        )
+
+    def forward(self, rgb, depth, audio, tactile, proprio):
+        # Encode each modality
+        rgb_feat = self.rgb_encoder(rgb).flatten(1)
+        depth_feat = self.depth_encoder(depth).flatten(1)
+        audio_feat = self.audio_encoder(audio).mean(dim=-1)
+        tactile_feat = self.tactile_encoder(tactile)
+        proprio_feat = self.proprio_encoder(proprio)
+
+        # Concatenate and project to common dimension
+        all_feats = torch.cat([
+            rgb_feat,
+            depth_feat,
+            audio_feat,
+            tactile_feat,
+            proprio_feat
+        ], dim=1)
+
+        # Fuse with transformer
+        fused = self.fusion(all_feats.unsqueeze(1))
+
+        return fused.squeeze(1)
+```
+
+### 2. Embodied Question Answering (EQA)
+
+```python
+# embodied_qa.py
+class EmbodiedQAAgent:
+    def __init__(self, env, perception_model, llm):
+        self.env = env
+        self.perception = perception_model
+        self.llm = llm  # Large language model
+        self.memory = []
+
+    def answer_question(self, question):
+        """
+        Answer question by actively exploring environment
+
+        Examples:
+        - "What color is the book on the table?"
+        - "How many chairs are in the room?"
+        - "Is there food in the refrigerator?"
+        """
+        print(f"Question: {question}")
+
+        # Generate exploration plan
+        plan = self.llm.generate_plan(question, self.get_scene_description())
+
+        # Execute exploration
+        for action in plan:
+            if action['type'] == 'navigate':
+                self.navigate_to(action['target'])
+
+            elif action['type'] == 'look_at':
+                self.look_at(action['target'])
+
+            elif action['type'] == 'manipulate':
+                self.manipulate(action['object'])
+
+            # Observe and update memory
+            observation = self.perceive()
+            self.memory.append({
+                'action': action,
+                'observation': observation
+            })
+
+        # Answer question based on gathered information
+        answer = self.llm.answer_from_memory(question, self.memory)
+
+        return answer
+
+    def navigate_to(self, target):
+        """Navigate to target location"""
+        path = self.plan_path(self.get_position(), target)
+        for waypoint in path:
+            self.env.move_to(waypoint)
+
+    def look_at(self, target):
+        """Point camera at target"""
+        target_direction = target - self.get_position()
+        self.env.set_camera_direction(target_direction)
+
+    def perceive(self):
+        """Get multimodal observation"""
+        obs = {
+            'rgb': self.env.get_rgb_image(),
+            'depth': self.env.get_depth_image(),
+            'detections': self.run_object_detection(),
+            'scene_graph': self.build_scene_graph()
+        }
+
+        return obs
+```
+
+### 3. Active Vision for Manipulation
+
+```python
+# active_vision.py
+class ActiveVisionController:
+    def __init__(self, robot):
+        self.robot = robot
+
+    def find_best_viewpoint(self, target_object):
+        """Move camera to get best view of object"""
+        # Sample candidate viewpoints around object
+        candidates = self.sample_viewpoints_around_object(target_object, n=20)
+
+        best_viewpoint = None
+        best_score = -float('inf')
+
+        for viewpoint in candidates:
+            # Move camera to viewpoint
+            self.robot.move_camera_to(viewpoint)
+
+            # Capture image
+            image = self.robot.get_camera_image()
+
+            # Score viewpoint
+            score = self.score_viewpoint(image, target_object)
+
+            if score > best_score:
+                best_score = score
+                best_viewpoint = viewpoint
+
+        # Move to best viewpoint
+        self.robot.move_camera_to(best_viewpoint)
+
+        return best_viewpoint
+
+    def score_viewpoint(self, image, target_object):
+        """Score quality of viewpoint"""
+        # Run object detector
+        detections = self.detect_objects(image)
+
+        # Find target
+        target_det = [d for d in detections if d['class'] == target_object]
+
+        if not target_det:
+            return 0
+
+        det = target_det[0]
+
+        # Score based on:
+        # - Object size in image (bigger is better)
+        # - Occlusion (less is better)
+        # - Image quality (blur, brightness)
+
+        size_score = det['bbox_area'] / (image.shape[0] * image.shape[1])
+        occlusion_score = 1.0 - det['occlusion_ratio']
+        quality_score = self.compute_image_quality(image)
+
+        return size_score * occlusion_score * quality_score
+```
+
+### 4. Spatial World Models
+
+```python
+# world_model.py
+class SpatialWorldModel:
+    def __init__(self):
+        self.object_database = {}  # object_id → 3D pose, properties
+        self.spatial_relations = []  # (obj1, relation, obj2)
+
+    def update_from_observation(self, observation):
+        """Update world model from sensor data"""
+        # Detect objects
+        detections = observation['detections']
+
+        for det in detections:
+            obj_id = det['id']
+
+            # Estimate 3D pose from depth
+            pose_3d = self.estimate_3d_pose(
+                det['bbox'],
+                observation['depth']
+            )
+
+            # Update database
+            self.object_database[obj_id] = {
+                'class': det['class'],
+                'pose': pose_3d,
+                'properties': det['properties']
+            }
+
+        # Update spatial relations
+        self.update_spatial_relations()
+
+    def query(self, natural_language_query):
+        """Answer spatial queries"""
+        # Examples:
+        # - "Where is the red mug?"
+        # - "What objects are on the table?"
+        # - "Is the door open or closed?"
+
+        # Parse query
+        query_type, entities = self.parse_query(natural_language_query)
+
+        if query_type == 'location':
+            obj = entities[0]
+            return self.object_database[obj]['pose']
+
+        elif query_type == 'on_relation':
+            surface = entities[0]
+            objects_on_surface = [
+                obj for obj, rel, surf in self.spatial_relations
+                if surf == surface and rel == 'on'
+            ]
+            return objects_on_surface
+
+    def predict_future_state(self, actions, timesteps):
+        """Predict future object configurations given actions"""
+        # Use learned dynamics model
+        predicted_states = []
+
+        current_state = self.get_current_state()
+
+        for t in range(timesteps):
+            next_state = self.dynamics_model(current_state, actions[t])
+            predicted_states.append(next_state)
+            current_state = next_state
+
+        return predicted_states
+```
+
+## Summary
+
+Embodied AI requires:
+- Multimodal sensor fusion (vision, touch, audio, proprioception)
+- Active perception (move to get better information)
+- Spatial reasoning and world models
+- Question answering through exploration
+
+These capabilities enable robots to understand and interact with complex, dynamic environments.
+
+## Exercises
+
+1. Implement multimodal fusion for RGB-D-Touch
+2. Create an active vision system to find objects
+3. Build a spatial world model and query it with natural language
+
+## Next Chapter
+
+Chapter 25 covers large-scale robot learning with internet data.
+
+---
+
+**Chapter Progress**: 24 of 26 | **Part**: Vision-Language-Action Models (6/7)

@@ -1,0 +1,395 @@
+# Chapter 25: Large-Scale Robot Learning and Internet Data
+
+## Learning Objectives
+
+- Understand scaling laws for robot learning
+- Leverage internet data for pretraining
+- Learn about Open X-Embodiment and robot data sharing
+- Implement cross-embodiment transfer learning
+- Use human videos for robot policy learning
+
+## Prerequisites
+
+- Chapters 23-24 (VLA and embodied AI)
+- Understanding of large-scale ML training
+- Knowledge of data scaling principles
+
+## Introduction
+
+The robotics community is following the path of language models: scaling data, models, and compute. This chapter covers how to leverage internet-scale data and multi-robot datasets for better generalization.
+
+## Core Concepts
+
+### 1. Open X-Embodiment Dataset
+
+**Open X-Embodiment**: Multi-robot dataset with 1M+ demonstrations across 22 robot embodiments and 160,000+ tasks.
+
+```python
+# load_oxe_data.py
+from datasets import load_dataset
+import tensorflow_datasets as tfds
+
+class OXEDataLoader:
+    def __init__(self):
+        self.datasets = [
+            'fractal20220817_data',
+            'kuka',
+            'bridge',
+            'taco_play',
+            'jaco_play',
+            'berkeley_cable_routing',
+            'roboturk',
+            'viola',
+            # ... 22 total robot platforms
+        ]
+
+    def load_mixed_dataset(self, sample_weights=None):
+        """Load and mix data from multiple robot embodiments"""
+        all_trajectories = []
+
+        for dataset_name in self.datasets:
+            # Load dataset
+            ds = tfds.load(f'oxe/{dataset_name}', split='train')
+
+            # Sample according to weights
+            weight = sample_weights.get(dataset_name, 1.0) if sample_weights else 1.0
+            num_samples = int(len(ds) * weight)
+
+            # Convert to common format
+            trajectories = []
+            for episode in ds.take(num_samples):
+                traj = self.convert_to_common_format(episode, dataset_name)
+                trajectories.append(traj)
+
+            all_trajectories.extend(trajectories)
+
+        return all_trajectories
+
+    def convert_to_common_format(self, episode, dataset_name):
+        """Standardize across different robot platforms"""
+        # Extract common fields
+        images = episode['observation']['image']
+        actions = episode['action']
+        language = episode['language_instruction']
+
+        # Normalize action space
+        normalized_actions = self.normalize_actions(
+            actions,
+            action_stats=self.get_action_stats(dataset_name)
+        )
+
+        return {
+            'images': images,
+            'actions': normalized_actions,
+            'language': language,
+            'robot_type': dataset_name
+        }
+
+    def normalize_actions(self, actions, action_stats):
+        """Normalize actions to [-1, 1] for cross-embodiment learning"""
+        mean = action_stats['mean']
+        std = action_stats['std']
+        normalized = (actions - mean) / (std + 1e-8)
+        return np.clip(normalized, -1, 1)
+```
+
+### 2. Cross-Embodiment Transfer
+
+```python
+# cross_embodiment_transfer.py
+import torch
+import torch.nn as nn
+
+class UniversalRobotPolicy(nn.Module):
+    def __init__(self, num_robot_types=22):
+        super().__init__()
+
+        # Shared vision encoder
+        self.vision_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224')
+
+        # Shared language encoder
+        self.language_encoder = T5Model.from_pretrained('t5-small')
+
+        # Robot-specific action heads
+        self.action_heads = nn.ModuleDict({
+            f'robot_{i}': nn.Sequential(
+                nn.Linear(768, 256),
+                nn.ReLU(),
+                nn.Linear(256, action_dims[i])
+            )
+            for i in range(num_robot_types)
+        })
+
+        # Robot type classifier (for zero-shot transfer)
+        self.robot_classifier = nn.Linear(768, num_robot_types)
+
+    def forward(self, images, language, robot_type=None):
+        # Encode vision
+        vision_feats = self.vision_encoder(images).last_hidden_state.mean(dim=1)
+
+        # Encode language
+        lang_tokens = self.tokenizer(language, return_tensors='pt').input_ids
+        lang_feats = self.language_encoder(lang_tokens).last_hidden_state.mean(dim=1)
+
+        # Fuse
+        combined = vision_feats + lang_feats
+
+        if robot_type is not None:
+            # Use specified robot head
+            actions = self.action_heads[f'robot_{robot_type}'](combined)
+        else:
+            # Auto-detect robot type
+            robot_logits = self.robot_classifier(combined)
+            predicted_robot = robot_logits.argmax(dim=1)
+            actions = self.action_heads[f'robot_{predicted_robot}'](combined)
+
+        return actions
+
+class CrossEmbodimentTrainer:
+    def __init__(self, model, datasets):
+        self.model = model
+        self.datasets = datasets
+        self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    def train_epoch(self):
+        """Train on mixed data from all robots"""
+        total_loss = 0
+
+        # Sample from each dataset
+        for robot_id, dataset in enumerate(self.datasets):
+            batch = next(iter(dataset))
+
+            # Forward pass
+            predicted_actions = self.model(
+                batch['images'],
+                batch['language'],
+                robot_type=robot_id
+            )
+
+            # Compute loss
+            loss = nn.MSELoss()(predicted_actions, batch['actions'])
+
+            # Backward pass
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item()
+
+        return total_loss / len(self.datasets)
+```
+
+### 3. Learning from Human Videos
+
+```python
+# human_video_pretraining.py
+class HumanVideoPretrain:
+    def __init__(self):
+        self.video_encoder = VideoMAE.from_pretrained('facebook/videomae-base')
+
+    def pretrain_from_youtube(self, video_urls):
+        """Pretrain visual representations from human videos"""
+        # Example: cooking videos, cleaning videos, assembly videos
+
+        for video_url in video_urls:
+            # Download and process video
+            frames = self.download_video(video_url)
+
+            # Extract human hand trajectories
+            hand_trajectories = self.track_hands(frames)
+
+            # Predict future frames (self-supervised)
+            predicted_frames = self.video_encoder(frames[:-1])
+            loss = nn.MSELoss()(predicted_frames, frames[1:])
+
+            # Learn visual representations
+            self.update_encoder(loss)
+
+    def track_hands(self, frames):
+        """Track human hands using MediaPipe or similar"""
+        import mediapipe as mp
+
+        mp_hands = mp.solutions.hands
+        hands = mp_hands.Hands()
+
+        trajectories = []
+
+        for frame in frames:
+            results = hands.process(frame)
+            if results.multi_hand_landmarks:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    # Extract 3D hand keypoints
+                    keypoints = [(lm.x, lm.y, lm.z) for lm in hand_landmarks.landmark]
+                    trajectories.append(keypoints)
+
+        return np.array(trajectories)
+
+    def transfer_to_robot(self, pretrained_encoder, robot_data):
+        """Fine-tune on robot data"""
+        # Freeze early layers
+        for param in pretrained_encoder.parameters()[:10]:
+            param.requires_grad = False
+
+        # Fine-tune on robot demonstrations
+        for batch in robot_data:
+            robot_feats = pretrained_encoder(batch['images'])
+            # Train action decoder...
+```
+
+### 4. Scaling Laws for Robotics
+
+```python
+# scaling_analysis.py
+import numpy as np
+import matplotlib.pyplot as plt
+
+class RobotScalingLaws:
+    def __init__(self):
+        self.experiments = []
+
+    def run_scaling_experiment(self, data_sizes, model_sizes):
+        """Measure performance vs data and model size"""
+        results = []
+
+        for n_data in data_sizes:
+            for n_params in model_sizes:
+                # Train model
+                model = self.train_model(
+                    num_demonstrations=n_data,
+                    num_parameters=n_params
+                )
+
+                # Evaluate
+                success_rate = self.evaluate(model)
+
+                results.append({
+                    'n_data': n_data,
+                    'n_params': n_params,
+                    'success_rate': success_rate
+                })
+
+        return results
+
+    def fit_scaling_law(self, results):
+        """Fit power law: Performance ∝ N^α"""
+        # Performance = a * (N_data)^α * (N_params)^β
+
+        log_n_data = np.log([r['n_data'] for r in results])
+        log_n_params = np.log([r['n_params'] for r in results])
+        log_performance = np.log([r['success_rate'] for r in results])
+
+        # Linear regression in log space
+        from sklearn.linear_model import LinearRegression
+
+        X = np.column_stack([log_n_data, log_n_params])
+        y = log_performance
+
+        model = LinearRegression().fit(X, y)
+
+        alpha = model.coef_[0]  # Data scaling exponent
+        beta = model.coef_[1]   # Model scaling exponent
+
+        print(f"Scaling law: Performance ∝ N_data^{alpha:.3f} * N_params^{beta:.3f}")
+
+        return alpha, beta
+
+    def predict_required_data(self, target_performance, model_size):
+        """Estimate data needed for target performance"""
+        # Use fitted scaling law
+        alpha, beta = self.scaling_law_params
+
+        # Solve for N_data
+        N_data = (target_performance / (model_size ** beta)) ** (1 / alpha)
+
+        return N_data
+```
+
+### 5. Multi-Task Robot Learning at Scale
+
+```python
+# multitask_learning.py
+class MultiTaskRobotLearning:
+    def __init__(self, tasks):
+        """
+        tasks: Dict of task_name → dataset
+        Example tasks:
+        - "pick_red_block"
+        - "open_drawer"
+        - "pour_water"
+        - "fold_cloth"
+        - "insert_peg"
+        """
+        self.tasks = tasks
+        self.shared_encoder = self.build_shared_encoder()
+        self.task_heads = self.build_task_heads()
+
+    def train_multitask(self, num_epochs=1000):
+        """Train on all tasks simultaneously"""
+        for epoch in range(num_epochs):
+            # Sample tasks proportional to dataset size
+            for task_name, dataset in self.tasks.items():
+                batch = next(iter(dataset))
+
+                # Forward through shared encoder
+                features = self.shared_encoder(batch['observation'])
+
+                # Task-specific head
+                actions = self.task_heads[task_name](features)
+
+                # Compute task-specific loss
+                loss = self.compute_loss(actions, batch['actions'])
+
+                # Backward pass updates shared encoder and task head
+                loss.backward()
+
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+    def zero_shot_transfer(self, new_task_name, few_demonstrations):
+        """Adapt to new task with few examples"""
+        # Freeze shared encoder
+        for param in self.shared_encoder.parameters():
+            param.requires_grad = False
+
+        # Train new task head only
+        new_head = nn.Sequential(nn.Linear(512, 256), nn.ReLU(), nn.Linear(256, 7))
+
+        optimizer = torch.optim.Adam(new_head.parameters(), lr=1e-3)
+
+        for demo in few_demonstrations * 100:  # Repeat demos
+            features = self.shared_encoder(demo['observation'])
+            actions = new_head(features)
+            loss = nn.MSELoss()(actions, demo['actions'])
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        self.task_heads[new_task_name] = new_head
+```
+
+## Summary
+
+Large-scale robot learning requires:
+- Multi-robot datasets (Open X-Embodiment)
+- Cross-embodiment transfer learning
+- Leveraging internet videos for pretraining
+- Understanding scaling laws
+- Multi-task learning with shared representations
+
+The future of robotics is data-driven, following the success of large language models.
+
+## Exercises
+
+1. Load and visualize Open X-Embodiment data from 3 different robots
+2. Implement a cross-embodiment policy and test transfer learning
+3. Pretrain a vision encoder on human demonstration videos
+4. Run a scaling experiment: measure performance vs dataset size
+
+## Next Chapter
+
+Chapter 26 is the Capstone Project: building a complete Physical AI system.
+
+---
+
+**Chapter Progress**: 25 of 26 | **Part**: Vision-Language-Action Models (6/7)

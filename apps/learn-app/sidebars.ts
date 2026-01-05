@@ -44,40 +44,40 @@ const sidebars: SidebarsConfig = {
       items: [
         'isaac/chapter-14',
         'isaac/chapter-15',
-        // 'isaac/chapter-16',
-        // 'isaac/chapter-17',
-        // 'isaac/chapter-18',
+        'isaac/chapter-16',
+        'isaac/chapter-17',
+        'isaac/chapter-18',
       ],
     },
-    // {
-    //   type: 'category',
-    //   label: 'Part 5: Humanoid Development',
-    //   collapsed: true,
-    //   items: [
-    //     '05-humanoid/chapter-19',
-    //     '05-humanoid/chapter-20',
-    //     '05-humanoid/chapter-21',
-    //     '05-humanoid/chapter-22',
-    //   ],
-    // },
-    // {
-    //   type: 'category',
-    //   label: 'Part 6: Vision-Language-Action Models',
-    //   collapsed: true,
-    //   items: [
-    //     '06-vla/chapter-23',
-    //     '06-vla/chapter-24',
-    //     '06-vla/chapter-25',
-    //   ],
-    // },
-    // {
-    //   type: 'category',
-    //   label: 'Part 7: Capstone Project',
-    //   collapsed: true,
-    //   items: [
-    //     '07-capstone/chapter-26',
-    //   ],
-    // },
+    {
+      type: 'category',
+      label: 'Part 5: Humanoid Development',
+      collapsed: true,
+      items: [
+        'humanoid/chapter-19',
+        'humanoid/chapter-20',
+        'humanoid/chapter-21',
+        'humanoid/chapter-22',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Part 6: Vision-Language-Action Models',
+      collapsed: true,
+      items: [
+        'vla/chapter-23',
+        'vla/chapter-24',
+        'vla/chapter-25',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Part 7: Capstone Project',
+      collapsed: true,
+      items: [
+        'capstone/chapter-26',
+      ],
+    },
   ],
 };
 

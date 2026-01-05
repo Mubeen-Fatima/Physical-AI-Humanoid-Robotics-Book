@@ -1,0 +1,167 @@
+# Chapter 16: Isaac SDK - Perception and Navigation
+
+## Learning Objectives
+
+- Understand Isaac SDK architecture and modules
+- Implement perception pipelines with GEM (Generalized Efficient Modules)
+- Use Isaac navigation stack for mobile robots
+- Integrate custom algorithms into Isaac SDK
+- Deploy Isaac applications on Jetson hardware
+
+## Prerequisites
+
+- Chapters 14-15 (Isaac Sim and Gym)
+- Computer vision fundamentals
+- C++ basics for custom modules
+
+## Introduction
+
+Isaac SDK provides production-ready modules for perception, navigation, and manipulation. This chapter covers building real-world applications with Isaac SDK's high-performance, modular architecture.
+
+## Core Concepts
+
+### 1. Isaac SDK Architecture
+
+```
+┌────────────────────────────────────────┐
+│         Application Layer              │
+├────────────────────────────────────────┤
+│    GEM Modules (Perception, Nav, ML)   │
+├────────────────────────────────────────┤
+│         Isaac Engine (Middleware)      │
+├────────────────────────────────────────┤
+│    Hardware (Jetson, x86, Simulation)  │
+└────────────────────────────────────────┘
+```
+
+### 2. Navigation with Isaac SDK
+
+```json
+{
+  "name": "navigation_app",
+  "modules": [
+    "navigation",
+    "perception",
+    "sensors:lidar",
+    "sensors:camera"
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "name": "global_planner",
+        "components": [
+          {
+            "name": "planner",
+            "type": "isaac::navigation::GlobalPlanner"
+          }
+        ]
+      },
+      {
+        "name": "local_planner",
+        "components": [
+          {
+            "name": "control",
+            "type": "isaac::navigation::DifferentialBaseControl"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "global_planner/planner/plan",
+        "target": "local_planner/control/plan"
+      }
+    ]
+  }
+}
+```
+
+### 3. Custom Perception Module
+
+```cpp
+// object_detector.hpp
+#include "engine/alice/alice_codelet.hpp"
+#include "messages/camera.capnp.h"
+
+class ObjectDetector : public isaac::alice::Codelet {
+ public:
+  void start() override {
+    tickPeriodically();
+  }
+
+  void tick() override {
+    // Receive camera image
+    auto image_proto = rx_image().getProto();
+
+    // Run detection
+    auto detections = detectObjects(image_proto);
+
+    // Publish results
+    auto detection_msg = tx_detections().initProto();
+    detection_msg.setDetections(detections);
+    tx_detections().publish();
+  }
+
+  // Input: camera image
+  ISAAC_PROTO_RX(ImageProto, image);
+
+  // Output: detections
+  ISAAC_PROTO_TX(DetectionListProto, detections);
+
+ private:
+  std::vector<Detection> detectObjects(const ImageProto& image);
+};
+
+ISAAC_ALICE_REGISTER_CODELET(ObjectDetector);
+```
+
+### 4. Deploying to Jetson
+
+```bash
+# Build for Jetson AGX Xavier
+bazel build //apps/my_robot:my_robot-pkg \
+  --config=jetpack45 \
+  --cpu=arm64-v8a
+
+# Deploy to Jetson
+./engine/build/deploy.sh \
+  --packag my_robot-pkg \
+  --host jetson.local \
+  --user nvidia
+
+# Run on Jetson
+ssh nvidia@jetson.local
+cd deploy/my_robot
+./apps/my_robot/my_robot
+```
+
+## Hands-On Tutorial: Warehouse Robot Navigation
+
+Build a complete warehouse robot application with Isaac SDK including:
+- LiDAR-based localization
+- Dynamic obstacle avoidance
+- Multi-goal navigation
+- Fleet management integration
+
+## Summary
+
+Isaac SDK provides production-ready modules for:
+- High-performance perception (object detection, segmentation, tracking)
+- Robust navigation (global/local planning, obstacle avoidance)
+- Hardware deployment (Jetson optimization)
+
+It's ideal for deploying robots in real-world applications.
+
+## Exercises
+
+1. Build a simple navigation application with Isaac SDK
+2. Create a custom perception module for your use case
+3. Deploy an Isaac application to Jetson hardware or simulator
+
+## Next Chapter
+
+Chapter 17 covers Isaac manipulation with robotic arms.
+
+---
+
+**Chapter Progress**: 16 of 26 | **Part**: NVIDIA Isaac (4/7)

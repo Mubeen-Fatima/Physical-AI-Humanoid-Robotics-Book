@@ -1,0 +1,234 @@
+# Chapter 20: Bipedal Locomotion and Walking Controllers
+
+## Learning Objectives
+
+- Understand gait cycles and walking patterns
+- Implement trajectory optimization for bipedal walking
+- Use Model Predictive Control (MPC) for locomotion
+- Learn about CPG (Central Pattern Generators)
+- Handle disturbances and push recovery
+
+## Prerequisites
+
+- Chapter 19 (Humanoid fundamentals)
+- Control theory basics
+- Optimization fundamentals
+
+## Introduction
+
+Bipedal walking is one of robotics' greatest challenges: maintaining dynamic balance while moving. This chapter covers proven approaches from trajectory optimization to learning-based methods.
+
+## Core Concepts
+
+### 1. Gait Cycle
+
+```
+Single Support (Left) → Double Support → Single Support (Right) → Double Support → Repeat
+
+Phases:
+- Heel Strike
+- Foot Flat
+- Mid-Stance
+- Heel Off
+- Toe Off
+- Swing Phase
+```
+
+### 2. Walking Pattern Generation
+
+```python
+# walking_pattern_generator.py
+import numpy as np
+from scipy.interpolate import CubicSpline
+
+class WalkingPatternGenerator:
+    def __init__(self, step_length=0.2, step_height=0.05, step_duration=0.8):
+        self.step_length = step_length
+        self.step_height = step_height
+        self.step_duration = step_duration
+
+    def generate_foot_trajectory(self, num_samples=100):
+        """Generate swing foot trajectory"""
+        t = np.linspace(0, self.step_duration, num_samples)
+
+        # X: forward motion (cubic polynomial)
+        x = self.step_length * (t / self.step_duration)
+
+        # Z: vertical motion (parabola for clearance)
+        z = -4 * self.step_height * (t / self.step_duration) * (t / self.step_duration - 1)
+
+        # Y: lateral (no sway for now)
+        y = np.zeros_like(t)
+
+        return np.column_stack([x, y, z]), t
+
+    def generate_com_trajectory(self, footsteps, com_height=0.9):
+        """Generate Center of Mass trajectory"""
+        com_trajectory = []
+
+        for i in range(len(footsteps) - 1):
+            # Linear interpolation between footstep centers
+            start_com = (footsteps[i] + footsteps[i+1]) / 2
+            start_com[2] = com_height
+
+            end_com = (footsteps[i+1] + footsteps[i+2] if i+1 < len(footsteps)-1
+                      else footsteps[i+1])
+            end_com[2] = com_height
+
+            # Cubic spline for smooth trajectory
+            t = np.linspace(0, 1, 50)
+            com_x = CubicSpline([0, 1], [start_com[0], end_com[0]])(t)
+            com_y = CubicSpline([0, 1], [start_com[1], end_com[1]])(t)
+            com_z = np.ones_like(t) * com_height
+
+            com_trajectory.extend(np.column_stack([com_x, com_y, com_z]))
+
+        return np.array(com_trajectory)
+```
+
+### 3. Model Predictive Control for Walking
+
+```python
+# mpc_walking.py
+import casadi as ca
+
+class MPCWalkingController:
+    def __init__(self, prediction_horizon=10, dt=0.1):
+        self.N = prediction_horizon
+        self.dt = dt
+
+        # State: [x, y, theta, vx, vy, omega]
+        self.nx = 6
+        # Control: [ax, ay, alpha]  (linear and angular accelerations)
+        self.nu = 3
+
+    def solve(self, current_state, reference_trajectory):
+        """Solve MPC optimization problem"""
+        # Decision variables
+        X = ca.SX.sym('X', self.nx, self.N+1)
+        U = ca.SX.sym('U', self.nu, self.N)
+
+        # Cost function
+        Q = ca.diag([10, 10, 1, 1, 1, 0.1])  # State cost
+        R = ca.diag([0.1, 0.1, 0.1])         # Control cost
+
+        J = 0  # Total cost
+
+        # Constraints list
+        g = []
+
+        # Dynamics constraints
+        for k in range(self.N):
+            # Cost
+            state_error = X[:, k] - reference_trajectory[:, k]
+            J += ca.mtimes([state_error.T, Q, state_error])
+            J += ca.mtimes([U[:, k].T, R, U[:, k]])
+
+            # Dynamics: x_{k+1} = f(x_k, u_k)
+            x_next = self.dynamics(X[:, k], U[:, k])
+            g.append(X[:, k+1] - x_next)
+
+        # Terminal cost
+        state_error = X[:, self.N] - reference_trajectory[:, self.N]
+        J += ca.mtimes([state_error.T, Q, state_error])
+
+        # Setup NLP
+        nlp = {
+            'x': ca.vertcat(ca.reshape(X, -1, 1), ca.reshape(U, -1, 1)),
+            'f': J,
+            'g': ca.vertcat(*g)
+        }
+
+        # Solver options
+        opts = {'ipopt.print_level': 0, 'print_time': 0}
+        solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
+
+        # Solve
+        sol = solver(
+            x0=np.zeros((self.nx*(self.N+1) + self.nu*self.N, 1)),
+            lbg=0, ubg=0  # Equality constraints
+        )
+
+        # Extract optimal control
+        u_opt = sol['x'][self.nx*(self.N+1):self.nx*(self.N+1)+self.nu].full().flatten()
+
+        return u_opt
+
+    def dynamics(self, state, control):
+        """Simplified dynamics model"""
+        x, y, theta, vx, vy, omega = state[0], state[1], state[2], state[3], state[4], state[5]
+        ax, ay, alpha = control[0], control[1], control[2]
+
+        # Integrate
+        x_next = x + vx * self.dt
+        y_next = y + vy * self.dt
+        theta_next = theta + omega * self.dt
+        vx_next = vx + ax * self.dt
+        vy_next = vy + ay * self.dt
+        omega_next = omega + alpha * self.dt
+
+        return ca.vertcat(x_next, y_next, theta_next, vx_next, vy_next, omega_next)
+```
+
+### 4. Push Recovery
+
+```python
+# push_recovery.py
+class PushRecoveryController:
+    def __init__(self):
+        self.stepping_threshold = 0.15  # meters
+
+    def detect_disturbance(self, measured_com, desired_com):
+        """Detect if robot is being pushed"""
+        com_error = np.linalg.norm(measured_com[:2] - desired_com[:2])
+
+        if com_error > self.stepping_threshold:
+            return True, com_error
+
+        return False, com_error
+
+    def compute_recovery_step(self, com_velocity, support_foot):
+        """Compute where to place foot to recover balance"""
+        # Capture Point: where to step to stop falling
+        com_height = 0.9
+        g = 9.81
+        omega = np.sqrt(g / com_height)
+
+        capture_point = support_foot[:2] + com_velocity[:2] / omega
+
+        # Step location: slightly beyond capture point
+        step_location = capture_point + 0.1 * com_velocity[:2] / np.linalg.norm(com_velocity[:2])
+
+        return np.array([step_location[0], step_location[1], 0])
+
+    def execute_recovery(self, recovery_step_location):
+        """Execute emergency step"""
+        # Quickly swing foot to recovery location
+        # Adjust trunk orientation
+        # Re-establish double support
+        pass
+```
+
+## Summary
+
+Bipedal locomotion requires:
+- Walking pattern generation (foot and CoM trajectories)
+- Real-time control (MPC, feedback control)
+- Disturbance handling (push recovery)
+- Gait cycle management
+
+Modern approaches combine optimization with learning for robust walking.
+
+## Exercises
+
+1. Implement a walking pattern generator for straight-line walking
+2. Create an MPC controller for trajectory tracking
+3. Simulate push recovery in Isaac Sim
+
+## Next Chapter
+
+Chapter 21 covers whole-body control and task prioritization for humanoids.
+
+---
+
+**Chapter Progress**: 20 of 26 | **Part**: Humanoid Development (5/7)

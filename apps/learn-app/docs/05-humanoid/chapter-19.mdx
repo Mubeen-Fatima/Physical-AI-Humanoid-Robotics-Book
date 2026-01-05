@@ -1,0 +1,222 @@
+# Chapter 19: Humanoid Robotics - Platforms and Fundamentals
+
+## Learning Objectives
+
+- Understand humanoid robot design principles
+- Survey modern humanoid platforms (Tesla Optimus, Figure 01, Unitree H1)
+- Learn bipedal locomotion fundamentals
+- Understand whole-body control
+- Explore humanoid use cases and applications
+
+## Prerequisites
+
+- Chapters 1-18 (Complete foundations through Isaac)
+- Understanding of dynamics and control
+- Familiarity with legged robotics concepts
+
+## Introduction
+
+Humanoid robots represent the ultimate challenge in robotics: creating machines that can navigate human environments, use human tools, and perform human tasks. This chapter introduces humanoid platforms and fundamental concepts.
+
+## Core Concepts
+
+### 1. Why Humanoids?
+
+**Advantages**:
+- Navigate environments designed for humans (stairs, doors, narrow spaces)
+- Use existing human tools without modification
+- Natural human-robot interaction
+- Redundant manipulation capabilities (two arms)
+
+**Challenges**:
+- Complex dynamics (20-40+ degrees of freedom)
+- Balance and stability control
+- Energy efficiency
+- Manufacturing cost
+
+### 2. Modern Humanoid Platforms
+
+| Platform | Height | Weight | DoF | Actuators | Use Case |
+|----------|--------|--------|-----|-----------|----------|
+| **Tesla Optimus** | 172cm | 56kg | 40+ | Linear actuators | Manufacturing, logistics |
+| **Figure 01** | 168cm | 60kg | 30+ | Electric motors | Warehouse, retail |
+| **Unitree H1** | 180cm | 47kg | 25 | Proprietary motors | Research, general purpose |
+| **Boston Dynamics Atlas** | 150cm | 80kg | 28 | Hydraulic | Research (agility) |
+| **Agility Digit** | 160cm | 45kg | 20 | Electric motors | Delivery, logistics |
+
+### 3. Humanoid Kinematics
+
+```python
+# humanoid_kinematics.py
+import numpy as np
+from scipy.spatial.transform import Rotation
+
+class HumanoidKinematics:
+    def __init__(self):
+        # Joint configuration (example for simplified humanoid)
+        self.joint_names = [
+            'hip_yaw', 'hip_roll', 'hip_pitch',  # Left leg
+            'knee_pitch', 'ankle_pitch', 'ankle_roll',
+            # Repeat for right leg, torso, arms...
+        ]
+
+        self.dof = len(self.joint_names)
+
+    def forward_kinematics(self, joint_positions):
+        """Compute end-effector positions from joint angles"""
+        # Simplified FK for foot position
+        hip_pos = np.array([0, 0.1, 0])  # Hip offset
+
+        # Thigh link
+        thigh_length = 0.4
+        thigh_rotation = Rotation.from_euler('xyz', [
+            joint_positions[0],  # yaw
+            joint_positions[1],  # roll
+            joint_positions[2]   # pitch
+        ])
+
+        knee_pos = hip_pos + thigh_rotation.apply([0, 0, -thigh_length])
+
+        # Shank link
+        shank_length = 0.4
+        shank_rotation = thigh_rotation * Rotation.from_euler('y', joint_positions[3])
+
+        ankle_pos = knee_pos + shank_rotation.apply([0, 0, -shank_length])
+
+        return {
+            'hip': hip_pos,
+            'knee': knee_pos,
+            'ankle': ankle_pos
+        }
+
+    def inverse_kinematics(self, target_foot_position):
+        """Compute joint angles to reach target foot position"""
+        # Simplified 2D IK for leg
+        x, y, z = target_foot_position
+
+        # Distance from hip to target
+        d = np.sqrt(x**2 + z**2)
+
+        thigh = 0.4
+        shank = 0.4
+
+        # Law of cosines for knee angle
+        knee_angle = np.arccos(
+            (thigh**2 + shank**2 - d**2) / (2 * thigh * shank)
+        )
+
+        # Hip angle
+        alpha = np.arctan2(z, x)
+        beta = np.arccos(
+            (thigh**2 + d**2 - shank**2) / (2 * thigh * d)
+        )
+        hip_pitch = alpha - beta
+
+        return {
+            'hip_pitch': hip_pitch,
+            'knee_pitch': knee_angle,
+            'ankle_pitch': -(hip_pitch + knee_angle)  # Keep foot flat
+        }
+```
+
+### 4. Center of Mass (CoM) and Zero Moment Point (ZMP)
+
+```python
+# balance_controller.py
+class BalanceController:
+    def __init__(self, mass=60.0):
+        self.total_mass = mass
+        self.g = 9.81
+
+    def compute_com(self, link_positions, link_masses):
+        """Compute center of mass"""
+        com = np.zeros(3)
+
+        for pos, mass in zip(link_positions, link_masses):
+            com += pos * mass
+
+        com /= self.total_mass
+        return com
+
+    def compute_zmp(self, com_position, com_acceleration):
+        """Compute Zero Moment Point"""
+        # ZMP condition for flat ground contact
+        com_height = com_position[2]
+
+        zmp_x = com_position[0] - (com_height / self.g) * com_acceleration[0]
+        zmp_y = com_position[1] - (com_height / self.g) * com_acceleration[1]
+
+        return np.array([zmp_x, zmp_y, 0])
+
+    def is_stable(self, zmp, support_polygon):
+        """Check if ZMP is inside support polygon"""
+        from shapely.geometry import Point, Polygon
+
+        zmp_point = Point(zmp[0], zmp[1])
+        polygon = Polygon(support_polygon)
+
+        return polygon.contains(zmp_point)
+
+# Example usage
+def check_balance():
+    controller = BalanceController(mass=60)
+
+    # Simulated link positions and masses
+    link_positions = [
+        np.array([0, 0, 0.4]),    # Left foot
+        np.array([0, 0.2, 0.4]),  # Right foot
+        np.array([0, 0.1, 0.8]),  # Pelvis
+        np.array([0, 0.1, 1.2]),  # Torso
+        np.array([0, 0.1, 1.6]),  # Head
+    ]
+
+    link_masses = [2, 2, 15, 30, 5]
+
+    # Compute CoM
+    com = controller.compute_com(link_positions, link_masses)
+
+    # Assume some acceleration
+    com_acc = np.array([0.1, 0, 0])
+
+    # Compute ZMP
+    zmp = controller.compute_zmp(com, com_acc)
+
+    # Support polygon (standing on both feet)
+    support = [
+        [-0.1, -0.05],  # Left foot rear
+        [-0.1, 0.05],   # Left foot front
+        [0.1, 0.25],    # Right foot front
+        [0.1, 0.15]     # Right foot rear
+    ]
+
+    stable = controller.is_stable(zmp, support)
+    print(f"Stable: {stable}, ZMP: {zmp[:2]}")
+```
+
+## Hands-On Tutorial: Simulating a Simple Humanoid
+
+Create a basic bipedal robot in Isaac Sim with balance control and simple walking.
+
+## Summary
+
+Humanoid robotics combines:
+- Complex kinematics and dynamics
+- Balance and stability (CoM, ZMP)
+- Whole-body control
+- Multi-contact planning
+
+Modern platforms like Tesla Optimus and Figure 01 are bringing humanoids closer to real-world deployment.
+
+## Exercises
+
+1. Implement forward and inverse kinematics for a 6-DOF leg
+2. Create a balance controller that keeps ZMP inside the support polygon
+3. Simulate a humanoid standing on one foot
+
+## Next Chapter
+
+Chapter 20 covers bipedal locomotion and walking pattern generation.
+
+---
+
+**Chapter Progress**: 19 of 26 | **Part**: Humanoid Development (5/7)

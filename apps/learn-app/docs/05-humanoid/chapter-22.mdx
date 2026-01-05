@@ -1,0 +1,280 @@
+# Chapter 22: Teleoperation and Human-Humanoid Interaction
+
+## Learning Objectives
+
+- Understand teleoperation interfaces for humanoids
+- Implement motion retargeting from human to robot
+- Use VR for immersive robot control
+- Learn bilateral teleoperation with force feedback
+- Explore imitation learning from demonstrations
+
+## Prerequisites
+
+- Chapters 19-21 (Complete humanoid development)
+- Understanding of human motion capture
+- Basics of VR/AR systems
+
+## Introduction
+
+Teleoperation enables humans to control humanoids directly, collecting demonstrations for learning and enabling remote work. This chapter covers retargeting human motion to robots.
+
+## Core Concepts
+
+### 1. Motion Retargeting Pipeline
+
+```
+Human Motion Capture → Inverse Kinematics Retargeting → Robot Control
+```
+
+### 2. VR Teleoperation System
+
+```python
+# vr_teleoperation.py
+import openvr
+import numpy as np
+
+class VRTeleoperator:
+    def __init__(self, robot):
+        self.robot = robot
+        self.vr_system = openvr.init(openvr.VRApplication_Scene)
+        self.tracker = VRTracker()
+
+    def track_human_motion(self):
+        """Track VR headset and controllers"""
+        poses = self.vr_system.getDeviceToAbsoluteTrackingPose(
+            openvr.TrackingUniverseStanding,
+            0,
+            openvr.k_unMaxTrackedDeviceCount
+        )
+
+        # Extract HMD (head) pose
+        hmd_pose = self.extract_pose(poses[openvr.k_unTrackedDeviceIndex_Hmd])
+
+        # Extract controller poses (hands)
+        left_hand = self.extract_pose(
+            poses[self.tracker.left_controller_index]
+        )
+        right_hand = self.extract_pose(
+            poses[self.tracker.right_controller_index]
+        )
+
+        return {
+            'head': hmd_pose,
+            'left_hand': left_hand,
+            'right_hand': right_hand
+        }
+
+    def retarget_to_robot(self, human_poses):
+        """Map human motion to robot configuration"""
+        # Scale translations (human arm ~0.6m, robot arm ~0.7m)
+        scale_factor = 0.7 / 0.6
+
+        # Retarget left arm
+        robot_left_hand = self.retarget_arm(
+            human_poses['left_hand'],
+            shoulder_position=self.robot.get_left_shoulder_position(),
+            scale=scale_factor,
+            side='left'
+        )
+
+        # Retarget right arm
+        robot_right_hand = self.retarget_arm(
+            human_poses['right_hand'],
+            shoulder_position=self.robot.get_right_shoulder_position(),
+            scale=scale_factor,
+            side='right'
+        )
+
+        # Retarget head (for robot camera pointing)
+        robot_head = self.retarget_head(human_poses['head'])
+
+        return {
+            'left_hand_target': robot_left_hand,
+            'right_hand_target': robot_right_hand,
+            'head_target': robot_head
+        }
+
+    def retarget_arm(self, hand_pose, shoulder_position, scale, side):
+        """Retarget arm motion with IK"""
+        # Transform to robot frame
+        hand_position = hand_pose['position'] * scale
+        hand_orientation = hand_pose['orientation']
+
+        # Offset from human shoulder to robot shoulder
+        offset = shoulder_position - self.human_shoulder_position[side]
+        robot_hand_position = hand_position + offset
+
+        return {
+            'position': robot_hand_position,
+            'orientation': hand_orientation
+        }
+
+    def control_loop(self):
+        """Main teleoperation loop"""
+        while True:
+            # Track human
+            human_poses = self.track_human_motion()
+
+            # Retarget
+            robot_targets = self.retarget_to_robot(human_poses)
+
+            # Compute IK
+            left_arm_joints = self.robot.solve_ik(
+                'left_arm',
+                robot_targets['left_hand_target']
+            )
+            right_arm_joints = self.robot.solve_ik(
+                'right_arm',
+                robot_targets['right_hand_target']
+            )
+
+            # Send commands
+            self.robot.set_joint_positions({
+                **left_arm_joints,
+                **right_arm_joints
+            })
+```
+
+### 3. Bilateral Teleoperation with Force Feedback
+
+```python
+# bilateral_teleoperation.py
+class BilateralTeleoperator:
+    def __init__(self, robot, haptic_device):
+        self.robot = robot
+        self.haptic = haptic_device
+        self.force_scaling = 0.5  # Scale robot forces to human
+
+    def control_with_force_feedback(self):
+        """Bilateral control loop"""
+        while True:
+            # Forward: Human command → Robot motion
+            human_position = self.haptic.get_position()
+            human_velocity = self.haptic.get_velocity()
+
+            robot_target = self.retarget_position(human_position)
+            self.robot.set_position_target(robot_target)
+
+            # Backward: Robot force → Human haptic feedback
+            robot_force = self.robot.get_end_effector_force()
+            human_force = robot_force * self.force_scaling
+
+            self.haptic.set_force(human_force)
+
+            # Detect collisions via force feedback
+            if np.linalg.norm(robot_force) > 50:  # Newtons
+                self.haptic.vibrate()  # Alert operator
+```
+
+### 4. Imitation Learning from Teleoperation
+
+```python
+# imitation_learning.py
+class TeleoperationRecorder:
+    def __init__(self):
+        self.demonstrations = []
+
+    def record_demonstration(self, duration_seconds):
+        """Record teleoperation session"""
+        trajectory = {
+            'observations': [],
+            'actions': [],
+            'success': False
+        }
+
+        start_time = time.time()
+
+        while time.time() - start_time < duration_seconds:
+            # Record observation
+            obs = {
+                'joint_positions': self.robot.get_joint_positions(),
+                'joint_velocities': self.robot.get_joint_velocities(),
+                'camera_image': self.robot.get_camera_image(),
+                'end_effector_pose': self.robot.get_end_effector_pose()
+            }
+
+            # Record action (commanded joint velocities)
+            action = self.robot.get_commanded_joint_velocities()
+
+            trajectory['observations'].append(obs)
+            trajectory['actions'].append(action)
+
+        # Label success
+        trajectory['success'] = self.check_task_success()
+
+        self.demonstrations.append(trajectory)
+
+    def train_policy(self):
+        """Train BC policy from demonstrations"""
+        from sklearn.neural_network import MLPRegressor
+
+        # Extract successful demonstrations
+        successful = [d for d in self.demonstrations if d['success']]
+
+        # Create training data
+        X_train = []
+        y_train = []
+
+        for demo in successful:
+            for obs, action in zip(demo['observations'], demo['actions']):
+                # State features
+                state = np.concatenate([
+                    obs['joint_positions'],
+                    obs['joint_velocities']
+                ])
+
+                X_train.append(state)
+                y_train.append(action)
+
+        # Train policy
+        policy = MLPRegressor(hidden_layer_sizes=(256, 256))
+        policy.fit(X_train, y_train)
+
+        return policy
+
+    def evaluate_policy(self, policy, num_trials=10):
+        """Evaluate learned policy"""
+        success_count = 0
+
+        for trial in range(num_trials):
+            obs = self.robot.reset()
+
+            for step in range(100):
+                state = np.concatenate([
+                    obs['joint_positions'],
+                    obs['joint_velocities']
+                ])
+
+                action = policy.predict([state])[0]
+                obs = self.robot.step(action)
+
+            if self.check_task_success():
+                success_count += 1
+
+        success_rate = success_count / num_trials
+        return success_rate
+```
+
+## Summary
+
+Teleoperation enables:
+- Direct human control of humanoids
+- Data collection for imitation learning
+- Remote operation for dangerous tasks
+- Bilateral force feedback for delicate operations
+
+Modern approaches combine teleoperation with learned policies for semi-autonomous control.
+
+## Exercises
+
+1. Implement motion retargeting from mocap data to robot
+2. Create a VR teleoperation interface
+3. Record 10 pick-place demonstrations and train a BC policy
+
+## Next Chapter
+
+Chapter 23 begins Part 6: VLA Models with foundation models for robotics.
+
+---
+
+**Chapter Progress**: 22 of 26 | **Part**: Humanoid Development (5/7)

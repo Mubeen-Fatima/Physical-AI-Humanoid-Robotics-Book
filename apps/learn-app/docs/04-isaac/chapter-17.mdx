@@ -1,0 +1,228 @@
+# Chapter 17: Isaac Manipulation - Robotic Arms and Grasping
+
+## Learning Objectives
+
+- Implement motion planning for robotic arms
+- Use Lula kinematics solver for inverse kinematics
+- Develop grasping strategies with Isaac
+- Integrate force/torque control
+- Implement pick-and-place workflows
+
+## Prerequisites
+
+- Chapters 14-16 (Isaac fundamentals)
+- Robot kinematics (Chapter 3)
+- Manipulation concepts
+
+## Introduction
+
+Manipulation tasks require precise motion planning, collision avoidance, and force control. Isaac provides optimized tools for arm control, grasping, and complex manipulation workflows.
+
+## Core Concepts
+
+### 1. Lula Motion Planning
+
+```python
+# lula_motion_planning.py
+from omni.isaac.motion_generation import LulaKinematicsSolver
+from omni.isaac.core.robots import Robot
+
+class ManipulationController:
+    def __init__(self, robot: Robot):
+        self.robot = robot
+
+        # Initialize Lula solver
+        self.lula = LulaKinematicsSolver(
+            robot_description_path="franka_description.yaml",
+            urdf_path="franka.urdf"
+        )
+
+    def move_to_pose(self, target_pose):
+        """Compute IK and move to target"""
+        # Compute inverse kinematics
+        joint_positions = self.lula.compute_inverse_kinematics(
+            target_position=target_pose[:3],
+            target_orientation=target_pose[3:],
+            initial_joint_positions=self.robot.get_joint_positions()
+        )
+
+        if joint_positions is not None:
+            # Plan trajectory
+            trajectory = self.lula.plan_trajectory(
+                start=self.robot.get_joint_positions(),
+                goal=joint_positions
+            )
+
+            # Execute trajectory
+            self.execute_trajectory(trajectory)
+            return True
+
+        return False
+
+    def execute_trajectory(self, trajectory):
+        """Execute planned trajectory"""
+        for waypoint in trajectory:
+            self.robot.set_joint_position_targets(waypoint)
+            # Wait for motion to complete...
+```
+
+### 2. Grasp Planning
+
+```python
+# grasp_planner.py
+from isaac_sim_examples.grasping import GraspPlanner
+import numpy as np
+
+class GraspController:
+    def __init__(self):
+        self.planner = GraspPlanner()
+
+    def plan_grasp(self, object_pose, object_geometry):
+        """Generate grasp candidates"""
+        grasp_candidates = self.planner.generate_grasps(
+            object_pose=object_pose,
+            object_type=object_geometry,
+            num_candidates=10
+        )
+
+        # Rank by quality
+        scored_grasps = [(self.score_grasp(g), g) for g in grasp_candidates]
+        scored_grasps.sort(reverse=True)
+
+        return [g for score, g in scored_grasps]
+
+    def score_grasp(self, grasp):
+        """Score grasp based on force closure and reachability"""
+        force_closure_score = self.compute_force_closure(grasp)
+        reachability_score = self.check_reachability(grasp)
+
+        return 0.7 * force_closure_score + 0.3 * reachability_score
+
+    def execute_grasp(self, grasp, gripper):
+        """Execute grasp motion"""
+        # Pre-grasp pose
+        pre_grasp = grasp.pose.copy()
+        pre_grasp[2] += 0.1  # 10cm above
+
+        self.move_to_pose(pre_grasp)
+
+        # Approach
+        self.move_to_pose(grasp.pose)
+
+        # Close gripper
+        gripper.close()
+
+        # Lift
+        lift_pose = grasp.pose.copy()
+        lift_pose[2] += 0.15
+        self.move_to_pose(lift_pose)
+```
+
+### 3. Pick and Place Workflow
+
+```python
+# pick_place_task.py
+class PickPlaceTask:
+    def __init__(self, robot, gripper):
+        self.robot = robot
+        self.gripper = gripper
+        self.grasp_planner = GraspController()
+        self.motion_planner = ManipulationController(robot)
+
+    async def execute_pick_place(self, object_id, target_location):
+        """Complete pick and place task"""
+        # 1. Detect object
+        object_pose = await self.detect_object(object_id)
+
+        # 2. Plan grasp
+        grasps = self.grasp_planner.plan_grasp(object_pose, object_geometry)
+
+        # 3. Execute pick
+        for grasp in grasps:
+            success = await self.pick_object(grasp)
+            if success:
+                break
+
+        if not success:
+            return False
+
+        # 4. Move to place location
+        place_pose = target_location
+        place_pose[2] += 0.1  # Above table
+
+        await self.motion_planner.move_to_pose(place_pose)
+
+        # 5. Place object
+        self.gripper.open()
+
+        # 6. Retreat
+        retreat_pose = place_pose.copy()
+        retreat_pose[2] += 0.15
+        await self.motion_planner.move_to_pose(retreat_pose)
+
+        return True
+```
+
+### 4. Force Control
+
+```python
+# force_controller.py
+class ForceController:
+    def __init__(self, robot):
+        self.robot = robot
+        self.desired_force = np.zeros(6)  # 3D force + 3D torque
+
+    def admittance_control(self, measured_force):
+        """Compliant motion control"""
+        # Admittance parameters
+        M = np.eye(6) * 1.0   # Virtual mass
+        B = np.eye(6) * 10.0  # Damping
+        K = np.eye(6) * 100.0 # Stiffness
+
+        # Force error
+        force_error = self.desired_force - measured_force
+
+        # Compute desired velocity
+        velocity = np.linalg.inv(B) @ (force_error - K @ self.position_error)
+
+        return velocity
+
+    def execute_insertion(self, hole_pose):
+        """Insert peg into hole with force feedback"""
+        insertion_force_limit = 50.0  # Newtons
+
+        while not self.is_inserted():
+            measured_force = self.robot.get_end_effector_force()
+
+            if np.linalg.norm(measured_force[:3]) > insertion_force_limit:
+                # Too much force, back off
+                self.robot.move_relative(z=0.01)
+            else:
+                # Continue insertion
+                velocity = self.admittance_control(measured_force)
+                self.robot.set_end_effector_velocity(velocity)
+```
+
+## Summary
+
+Isaac manipulation capabilities include:
+- Optimized IK solving with Lula
+- Grasp planning and execution
+- Pick-and-place workflows
+- Force/impedance control
+
+These tools enable robust manipulation in real-world applications.
+
+## Exercises
+
+1. Implement a bin-picking application
+2. Create a grasp planner for novel objects
+3. Develop a force-controlled assembly task
+
+## Next Chapter
+
+Chapter 18 covers Isaac sensor simulation and synthetic data generation.
+
+---
+
+**Chapter Progress**: 17 of 26 | **Part**: NVIDIA Isaac (4/7)

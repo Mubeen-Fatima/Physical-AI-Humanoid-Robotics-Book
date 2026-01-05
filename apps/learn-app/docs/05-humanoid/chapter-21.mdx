@@ -1,0 +1,257 @@
+# Chapter 21: Whole-Body Control and Task Prioritization
+
+## Learning Objectives
+
+- Understand hierarchical task control
+- Implement quadratic programming (QP) based controllers
+- Handle conflicting tasks with priorities
+- Control redundant humanoid systems
+- Integrate locomotion and manipulation
+
+## Prerequisites
+
+- Chapters 19-20 (Humanoid fundamentals and locomotion)
+- Linear algebra and optimization
+- Control theory
+
+## Introduction
+
+Humanoids must perform multiple simultaneous tasks: maintain balance, walk, manipulate objects, avoid obstacles. Whole-body control enables coordinated execution of these prioritized tasks.
+
+## Core Concepts
+
+### 1. Task Hierarchy
+
+```
+Priority 1 (Critical): Balance, joint limits, collision avoidance
+Priority 2 (High): End-effector position/orientation
+Priority 3 (Medium): Center of Mass position
+Priority 4 (Low): Joint posture optimization
+```
+
+### 2. QP-Based Whole-Body Controller
+
+```python
+# whole_body_controller.py
+import numpy as np
+from scipy.optimize import minimize
+import cvxpy as cp
+
+class WholeBodyController:
+    def __init__(self, robot_model):
+        self.model = robot_model
+        self.n_dof = robot_model.get_num_joints()
+
+    def solve_ik_prioritized(self, tasks):
+        """
+        Solve inverse kinematics with task prioritization
+
+        tasks: List of (Jacobian, desired_velocity, priority_weight)
+        """
+        # Decision variable: joint velocities
+        q_dot = cp.Variable(self.n_dof)
+
+        # Build hierarchical optimization
+        objective = 0
+        constraints = []
+
+        for J, v_des, weight in sorted(tasks, key=lambda x: -x[2]):
+            # Task error
+            task_error = J @ q_dot - v_des
+
+            # Weighted quadratic cost
+            objective += weight * cp.sum_squares(task_error)
+
+        # Add regularization (prefer small joint velocities)
+        objective += 0.001 * cp.sum_squares(q_dot)
+
+        # Joint velocity limits
+        q_dot_max = 2.0  # rad/s
+        constraints.append(q_dot <= q_dot_max)
+        constraints.append(q_dot >= -q_dot_max)
+
+        # Solve QP
+        problem = cp.Problem(cp.Minimize(objective), constraints)
+        problem.solve()
+
+        return q_dot.value
+
+    def compute_task_jacobian(self, task_name, current_state):
+        """Compute Jacobian for specific task"""
+        if task_name == 'right_hand':
+            # End-effector Jacobian
+            return self.model.compute_end_effector_jacobian('right_hand', current_state)
+
+        elif task_name == 'com':
+            # Center of mass Jacobian
+            return self.model.compute_com_jacobian(current_state)
+
+        elif task_name == 'balance':
+            # ZMP/balance Jacobian
+            return self.model.compute_zmp_jacobian(current_state)
+
+# Example usage
+def control_reaching_while_walking():
+    robot = HumanoidModel()
+    controller = WholeBodyController(robot)
+
+    # Current state
+    q = robot.get_joint_positions()
+
+    # Task 1: Balance (highest priority)
+    J_balance = controller.compute_task_jacobian('balance', q)
+    v_balance_des = np.array([0, 0])  # Keep ZMP centered
+    balance_task = (J_balance, v_balance_des, 100.0)
+
+    # Task 2: Right hand reaching (high priority)
+    J_hand = controller.compute_task_jacobian('right_hand', q)
+    v_hand_des = np.array([0.1, 0, 0.1, 0, 0, 0])  # Move forward and up
+    hand_task = (J_hand, v_hand_des, 10.0)
+
+    # Task 3: CoM tracking (medium priority)
+    J_com = controller.compute_task_jacobian('com', q)
+    v_com_des = np.array([0.05, 0, 0])  # Move CoM forward for walking
+    com_task = (J_com, v_com_des, 1.0)
+
+    # Solve
+    q_dot = controller.solve_ik_prioritized([balance_task, hand_task, com_task])
+
+    return q_dot
+```
+
+### 3. Contact-Aware Whole-Body Control
+
+```python
+# contact_aware_wbc.py
+class ContactAwareController:
+    def __init__(self, robot_model):
+        self.model = robot_model
+
+    def solve_with_contacts(self, tasks, contacts):
+        """
+        Solve WBC with contact constraints
+
+        contacts: List of (contact_point, contact_normal, friction_coefficient)
+        """
+        n_dof = self.model.get_num_joints()
+
+        # Decision variables
+        q_ddot = cp.Variable(n_dof)  # Joint accelerations
+        contact_forces = cp.Variable(3 * len(contacts))  # Contact forces
+
+        # Dynamics: M(q)q̈ + C(q,q̇) = τ + J^T F
+        M = self.model.get_mass_matrix()
+        C = self.model.get_coriolis_forces()
+
+        # Torque constraints
+        tau_max = self.model.get_torque_limits()
+
+        objective = 0
+
+        # Add task objectives
+        for J, a_des, weight in tasks:
+            task_accel = J @ q_ddot
+            objective += weight * cp.sum_squares(task_accel - a_des)
+
+        # Contact constraints
+        constraints = []
+
+        for i, (point, normal, mu) in enumerate(contacts):
+            J_contact = self.model.compute_contact_jacobian(point)
+
+            # Force component in contact frame
+            f_i = contact_forces[3*i:3*i+3]
+
+            # Normal force must be positive (no pulling)
+            constraints.append(f_i @ normal >= 0)
+
+            # Friction cone constraint
+            f_tangent = np.linalg.norm(f_i - (f_i @ normal) * normal)
+            f_normal = f_i @ normal
+            constraints.append(f_tangent <= mu * f_normal)
+
+        # Solve
+        problem = cp.Problem(cp.Minimize(objective), constraints)
+        problem.solve(solver=cp.OSQP)
+
+        return q_ddot.value, contact_forces.value
+```
+
+### 4. Simultaneous Locomotion and Manipulation
+
+```python
+# loco_manipulation.py
+class LocoManipulationController:
+    def __init__(self, robot):
+        self.robot = robot
+        self.wbc = WholeBodyController(robot)
+
+    def pick_while_walking(self, object_position, goal_position):
+        """Pick object while walking to goal"""
+        state = 'APPROACH'
+
+        while not self.reached_goal(goal_position):
+            if state == 'APPROACH':
+                # Walk toward object
+                tasks = [
+                    self.balance_task(),
+                    self.com_tracking_task(object_position),
+                    self.posture_task()
+                ]
+
+                if self.in_reach(object_position):
+                    state = 'REACH'
+
+            elif state == 'REACH':
+                # Extend arm while maintaining walking
+                tasks = [
+                    self.balance_task(),
+                    self.com_tracking_task(goal_position),  # Keep walking
+                    self.hand_reaching_task(object_position),  # Reach for object
+                    self.posture_task()
+                ]
+
+                if self.hand_at_object():
+                    state = 'GRASP'
+
+            elif state == 'GRASP':
+                # Close gripper and retract
+                self.close_gripper()
+                tasks = [
+                    self.balance_task(),
+                    self.com_tracking_task(goal_position),
+                    self.hand_retract_task(),
+                    self.posture_task()
+                ]
+
+                if self.reached_goal(goal_position):
+                    state = 'PLACE'
+
+            # Solve WBC
+            q_dot = self.wbc.solve_ik_prioritized(tasks)
+            self.robot.set_joint_velocities(q_dot)
+```
+
+## Summary
+
+Whole-body control enables humanoids to:
+- Execute multiple simultaneous tasks
+- Respect task priorities and constraints
+- Coordinate locomotion and manipulation
+- Handle contacts and balance
+
+QP-based approaches provide real-time performance for complex humanoid behaviors.
+
+## Exercises
+
+1. Implement a 3-level task hierarchy controller
+2. Add joint limit avoidance as a high-priority task
+3. Simulate reaching while walking in Isaac Sim
+
+## Next Chapter
+
+Chapter 22 covers teleoperation and human-humanoid interaction.
+
+---
+
+**Chapter Progress**: 21 of 26 | **Part**: Humanoid Development (5/7)

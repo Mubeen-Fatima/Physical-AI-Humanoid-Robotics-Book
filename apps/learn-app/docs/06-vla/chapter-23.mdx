@@ -1,0 +1,297 @@
+# Chapter 23: Foundation Models for Robotics - Vision-Language-Action (VLA)
+
+## Learning Objectives
+
+- Understand vision-language models (VLMs) for robotics
+- Learn about RT-1, RT-2, and other VLA architectures
+- Implement language-conditioned robot policies
+- Fine-tune foundation models for robotics tasks
+- Deploy VLA models on real robots
+
+## Prerequisites
+
+- Chapters 1-22 (Complete robotics fundamentals)
+- Deep learning and transformers
+- Familiarity with LLMs (GPT, BERT, etc.)
+
+## Introduction
+
+Foundation models pre-trained on internet-scale data are revolutionizing robotics. Vision-Language-Action (VLA) models combine visual perception, language understanding, and robot control in a single end-to-end architecture.
+
+## Core Concepts
+
+### 1. VLA Architecture
+
+```
+Natural Language Instruction → Language Encoder (T5, BERT)
+                                       ↓
+Camera Images → Vision Encoder (ViT, ResNet) → Transformer → Action Decoder → Robot Actions
+                                       ↑
+                            Robot State (proprioception)
+```
+
+### 2. RT-1 (Robotics Transformer)
+
+```python
+# rt1_model.py
+import torch
+import torch.nn as nn
+from transformers import T5Tokenizer, T5Model, ViTModel
+
+class RT1Policy(nn.Module):
+    def __init__(self, action_dim=7):
+        super().__init__()
+
+        # Vision encoder (pretrained ViT)
+        self.vision_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224')
+
+        # Language encoder (pretrained T5)
+        self.language_encoder = T5Model.from_pretrained('t5-small')
+        self.tokenizer = T5Tokenizer.from_pretrained('t5-small')
+
+        # Fusion transformer
+        self.fusion_layers = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=768, nhead=8),
+            num_layers=6
+        )
+
+        # Action head
+        self.action_head = nn.Sequential(
+            nn.Linear(768, 512),
+            nn.ReLU(),
+            nn.Linear(512, action_dim)
+        )
+
+    def forward(self, images, instruction, robot_state):
+        """
+        Args:
+            images: (B, T, C, H, W) - sequence of camera images
+            instruction: List of text instructions
+            robot_state: (B, T, state_dim) - robot proprioception
+
+        Returns:
+            actions: (B, T, action_dim)
+        """
+        batch_size, seq_len = images.shape[:2]
+
+        # Encode images
+        image_embeddings = []
+        for t in range(seq_len):
+            img = images[:, t]  # (B, C, H, W)
+            img_emb = self.vision_encoder(pixel_values=img).last_hidden_state
+            img_emb = img_emb.mean(dim=1)  # Pool (B, 768)
+            image_embeddings.append(img_emb)
+
+        image_embeddings = torch.stack(image_embeddings, dim=1)  # (B, T, 768)
+
+        # Encode instruction
+        text_tokens = self.tokenizer(
+            instruction,
+            return_tensors='pt',
+            padding=True,
+            truncation=True
+        ).input_ids.to(images.device)
+
+        text_emb = self.language_encoder(text_tokens).last_hidden_state
+        text_emb = text_emb.mean(dim=1, keepdim=True)  # (B, 1, 768)
+
+        # Repeat text embedding for each timestep
+        text_emb = text_emb.repeat(1, seq_len, 1)  # (B, T, 768)
+
+        # Fuse vision + language + state
+        fused = image_embeddings + text_emb  # Simple addition
+
+        # Pass through transformer
+        fused = self.fusion_layers(fused)
+
+        # Predict actions
+        actions = self.action_head(fused)
+
+        return actions
+```
+
+### 3. Training VLA Models
+
+```python
+# train_vla.py
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+class RobotDataset(Dataset):
+    def __init__(self, demonstrations):
+        self.demos = demonstrations
+
+    def __len__(self):
+        return len(self.demos)
+
+    def __getitem__(self, idx):
+        demo = self.demos[idx]
+
+        return {
+            'images': torch.tensor(demo['images']),
+            'instruction': demo['instruction'],
+            'actions': torch.tensor(demo['actions']),
+            'robot_state': torch.tensor(demo['robot_state'])
+        }
+
+class VLATrainer:
+    def __init__(self, model, dataset):
+        self.model = model
+        self.dataset = dataset
+        self.dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+        self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    def train_epoch(self):
+        self.model.train()
+        total_loss = 0
+
+        for batch in self.dataloader:
+            # Forward pass
+            predicted_actions = self.model(
+                batch['images'],
+                batch['instruction'],
+                batch['robot_state']
+            )
+
+            # Compute loss
+            target_actions = batch['actions']
+            loss = nn.MSELoss()(predicted_actions, target_actions)
+
+            # Backward pass
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item()
+
+        return total_loss / len(self.dataloader)
+
+    def train(self, num_epochs=100):
+        for epoch in range(num_epochs):
+            loss = self.train_epoch()
+            print(f"Epoch {epoch}: Loss = {loss:.4f}")
+
+            # Save checkpoint
+            if (epoch + 1) % 10 == 0:
+                torch.save(self.model.state_dict(), f'vla_epoch_{epoch}.pt')
+```
+
+### 4. Deploying VLA on Real Robot
+
+```python
+# vla_deployment.py
+class VLARobotController:
+    def __init__(self, model_path, robot):
+        self.model = RT1Policy()
+        self.model.load_state_dict(torch.load(model_path))
+        self.model.eval()
+        self.robot = robot
+
+    def execute_instruction(self, instruction):
+        """Execute natural language instruction"""
+        print(f"Executing: {instruction}")
+
+        # Initialize history
+        image_history = []
+        state_history = []
+
+        while not self.task_complete():
+            # Get current observation
+            image = self.robot.get_camera_image()
+            state = self.robot.get_joint_positions()
+
+            # Maintain short history (e.g., last 5 frames)
+            image_history.append(image)
+            state_history.append(state)
+
+            if len(image_history) > 5:
+                image_history.pop(0)
+                state_history.pop(0)
+
+            # Prepare inputs
+            images = torch.tensor(image_history).unsqueeze(0)  # (1, T, C, H, W)
+            states = torch.tensor(state_history).unsqueeze(0)   # (1, T, state_dim)
+
+            # Predict action
+            with torch.no_grad():
+                actions = self.model(images, [instruction], states)
+
+            # Execute action (take last prediction)
+            action = actions[0, -1].cpu().numpy()
+            self.robot.execute_action(action)
+
+    def task_complete(self):
+        """Check if task is finished"""
+        # Could use vision model to detect completion
+        # or rely on gripper sensors, etc.
+        return self.robot.check_task_success()
+
+# Example usage
+def main():
+    robot = Robot()
+    controller = VLARobotController('vla_model.pt', robot)
+
+    # Natural language commands
+    controller.execute_instruction("pick up the red block")
+    controller.execute_instruction("place it in the blue bin")
+    controller.execute_instruction("return to home position")
+```
+
+### 5. Few-Shot Adaptation
+
+```python
+# few_shot_adaptation.py
+class FewShotVLA:
+    def __init__(self, pretrained_model):
+        self.model = pretrained_model
+
+    def adapt_to_new_task(self, demonstrations, num_steps=100):
+        """Fine-tune on a few demonstrations of new task"""
+        # Freeze vision and language encoders
+        for param in self.model.vision_encoder.parameters():
+            param.requires_grad = False
+
+        for param in self.model.language_encoder.parameters():
+            param.requires_grad = False
+
+        # Only fine-tune fusion and action head
+        optimizer = torch.optim.Adam(
+            list(self.model.fusion_layers.parameters()) +
+            list(self.model.action_head.parameters()),
+            lr=1e-5
+        )
+
+        # Train on few demonstrations
+        for step in range(num_steps):
+            for demo in demonstrations:
+                loss = self.compute_loss(demo)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+        return self.model
+```
+
+## Summary
+
+VLA models represent the future of robot learning:
+- Leverage internet-scale pretraining
+- Generalize across tasks via natural language
+- Transfer knowledge from simulation and other robots
+- Enable rapid adaptation with few demonstrations
+
+Models like RT-2 and PaLM-E show remarkable zero-shot and few-shot capabilities.
+
+## Exercises
+
+1. Implement a simple VLA model architecture
+2. Fine-tune a pretrained vision encoder for robot tasks
+3. Deploy a VLA policy on a simulated robot with language commands
+
+## Next Chapter
+
+Chapter 24 covers multimodal perception and embodied intelligence.
+
+---
+
+**Chapter Progress**: 23 of 26 | **Part**: Vision-Language-Action Models (6/7)
