@@ -1,0 +1,224 @@
+# Chapter 9: ROS 2 Bags, Data Recording, and Testing
+
+## Learning Objectives
+
+- Record and playback ROS 2 data using bags
+- Analyze recorded data for debugging
+- Use bags for testing and validation
+- Filter and export bag data
+- Implement automated testing with bags
+
+## Prerequisites
+
+- Chapters 1-8 (Complete ROS 2 fundamentals)
+- Understanding of data formats and serialization
+
+## Introduction
+
+ROS 2 bags record all message data flowing through topics, enabling replay, analysis, and testing without hardware. This chapter covers using bags for development, debugging, and validation.
+
+## Core Concepts
+
+### 1. Recording Data
+
+```bash
+# Record all topics
+ros2 bag record -a
+
+# Record specific topics
+ros2 bag record /camera/image_raw /laser_scan /odom
+
+# Record with storage options
+ros2 bag record -a -o my_bag_name --storage sqlite3
+
+# Record compressed
+ros2 bag record -a --compression-mode file
+```
+
+### 2. Playback and Analysis
+
+```bash
+# Get bag info
+ros2 bag info my_bag_name
+
+# Play bag
+ros2 bag play my_bag_name
+
+# Play at half speed
+ros2 bag play my_bag_name --rate 0.5
+
+# Play looping
+ros2 bag play my_bag_name --loop
+
+# Play specific topics only
+ros2 bag play my_bag_name --topics /odom /laser_scan
+```
+
+### 3. Programmatic Bag Reading
+
+```python
+# bag_reader.py
+import rclpy
+from rclpy.node import Node
+from rosbag2_py import SequentialReader, StorageOptions, ConverterOptions
+from rclpy.serialization import deserialize_message
+from rosidl_runtime_py.utilities import get_message
+from std_msgs.msg import String
+
+class BagReader(Node):
+    def __init__(self, bag_path):
+        super().__init__('bag_reader')
+
+        # Setup bag reader
+        storage_options = StorageOptions(uri=bag_path, storage_id='sqlite3')
+        converter_options = ConverterOptions('', '')
+
+        self.reader = SequentialReader()
+        self.reader.open(storage_options, converter_options)
+
+        self.read_messages()
+
+    def read_messages(self):
+        topic_types = self.reader.get_all_topics_and_types()
+
+        # Create type map
+        type_map = {t.name: t.type for t in topic_types}
+
+        while self.reader.has_next():
+            (topic, data, timestamp) = self.reader.read_next()
+
+            # Deserialize message
+            msg_type = get_message(type_map[topic])
+            msg = deserialize_message(data, msg_type)
+
+            self.get_logger().info(f'Topic: {topic}, Time: {timestamp}')
+            # Process message...
+
+def main():
+    rclpy.init()
+    reader = BagReader('/path/to/bag')
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Hands-On Tutorial: Automated Testing with Bags
+
+```python
+# test_navigation_with_bag.py
+import unittest
+import rclpy
+from rclpy.node import Node
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist
+import subprocess
+import time
+
+class NavigationBagTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        rclpy.init()
+
+    @classmethod
+    def tearDownClass(cls):
+        rclpy.shutdown()
+
+    def test_navigation_converges(self):
+        """Test that robot reaches goal using recorded sensor data"""
+
+        # Start bag playback in background
+        bag_process = subprocess.Popen([
+            'ros2', 'bag', 'play',
+            'test_data/navigation_test.bag',
+            '--topics', '/laser_scan', '/odom'
+        ])
+
+        # Create test node
+        node = NavigationTestNode()
+
+        # Spin for 30 seconds
+        start_time = time.time()
+        while time.time() - start_time < 30:
+            rclpy.spin_once(node, timeout_sec=0.1)
+
+        # Check results
+        self.assertTrue(node.reached_goal, "Robot failed to reach goal")
+        self.assertLess(
+            node.max_velocity,
+            2.0,
+            "Robot exceeded max velocity constraint"
+        )
+
+        # Cleanup
+        bag_process.terminate()
+        node.destroy_node()
+
+class NavigationTestNode(Node):
+    def __init__(self):
+        super().__init__('navigation_test_node')
+        self.reached_goal = False
+        self.max_velocity = 0.0
+
+        self.odom_sub = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.odom_callback,
+            10
+        )
+
+        self.cmd_vel_sub = self.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.cmd_vel_callback,
+            10
+        )
+
+    def odom_callback(self, msg):
+        # Check if near goal
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        distance_to_goal = ((x - 5.0)**2 + (y - 3.0)**2)**0.5
+
+        if distance_to_goal < 0.1:
+            self.reached_goal = True
+
+    def cmd_vel_callback(self, msg):
+        velocity = (msg.linear.x**2 + msg.linear.y**2)**0.5
+        self.max_velocity = max(self.max_velocity, velocity)
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+## Bag-Based Development Workflow
+
+1. **Record** real robot data during manual testing
+2. **Develop** algorithms offline using bag playback
+3. **Test** with automated bag-based unit tests
+4. **Validate** on real hardware
+5. **Iterate** with new bag recordings
+
+## Summary
+
+ROS 2 bags are essential for:
+- Debugging without hardware access
+- Automated testing and validation
+- Performance analysis and profiling
+- Data sharing and reproduction
+
+This completes the ROS 2 Fundamentals section. You now have the skills to build, configure, and test production ROS 2 systems.
+
+## Exercises
+
+1. Record 1 minute of robot sensor data (simulated or real)
+2. Write a Python script to extract odometry data and plot the robot's trajectory
+3. Create an automated test that verifies your robot stays within velocity limits using a test bag
+
+## Next Chapter
+
+Chapter 10 begins Part 3: Simulation with Gazebo fundamentals.
+
+---
+
+**Chapter Progress**: 9 of 26 | **Part**: ROS 2 Fundamentals (2/7)

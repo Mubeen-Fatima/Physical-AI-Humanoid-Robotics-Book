@@ -1,0 +1,222 @@
+# Chapter 14: NVIDIA Isaac Sim - GPU-Accelerated Robot Simulation
+
+## Learning Objectives
+
+- Set up NVIDIA Isaac Sim environment
+- Understand Isaac Sim's GPU-accelerated physics (PhysX)
+- Create photorealistic robot simulations
+- Integrate Isaac Sim with ROS 2
+- Leverage synthetic data generation for AI training
+
+## Prerequisites
+
+- Chapters 1-13 (ROS 2 and simulation fundamentals)
+- NVIDIA GPU (RTX series recommended)
+- Understanding of USD (Universal Scene Description) helpful
+
+## Introduction
+
+NVIDIA Isaac Sim combines GPU-accelerated physics, photorealistic rendering, and AI-native tools for modern robotics development. It's particularly powerful for manipulation, warehouse automation, and synthetic data generation.
+
+## Core Concepts
+
+### 1. Isaac Sim vs Traditional Simulators
+
+| Feature | Gazebo | Unity | Isaac Sim |
+|---------|---------|-------|-----------|
+| **Physics** | CPU (ODE) | CPU (PhysX) | **GPU (PhysX)** |
+| **Rendering** | OGRE | HDRP | **RTX Ray Tracing** |
+| **Scale** | ~10 robots | ~50 robots | **1000+ robots** |
+| **AI Integration** | Limited | ML-Agents | **Omniverse AI** |
+
+### 2. Isaac Sim Architecture
+
+```
+┌─────────────────────────────────────────┐
+│          Isaac Sim (Omniverse)          │
+├─────────────────────────────────────────┤
+│  PhysX (GPU)  │  RTX Rendering  │  ROS 2│
+├───────────────┴─────────────────┴───────┤
+│         Synthetic Data Generation        │
+│     (Domain Randomization Built-in)      │
+└─────────────────────────────────────────┘
+```
+
+### 3. Basic Isaac Sim Scene
+
+```python
+# isaac_sim_scene.py
+from omni.isaac.kit import SimulationApp
+simulation_app = SimulationApp({"headless": False})
+
+from omni.isaac.core import World
+from omni.isaac.core.objects import DynamicCuboid
+from omni.isaac.core.robots import Robot
+import numpy as np
+
+# Create world
+world = World()
+
+# Add ground plane
+world.scene.add_default_ground_plane()
+
+# Add robot
+robot = Robot(
+    prim_path="/World/Franka",
+    name="franka",
+    usd_path="/Isaac/Robots/Franka/franka.usd"
+)
+world.scene.add(robot)
+
+# Add object to manipulate
+cube = DynamicCuboid(
+    prim_path="/World/Cube",
+    name="cube",
+    position=np.array([0.5, 0, 0.5]),
+    size=0.05,
+    color=np.array([1, 0, 0])
+)
+world.scene.add(cube)
+
+# Reset world
+world.reset()
+
+# Simulation loop
+for i in range(1000):
+    world.step(render=True)
+
+simulation_app.close()
+```
+
+### 4. ROS 2 Integration
+
+```python
+# isaac_ros2_bridge.py
+from omni.isaac.kit import SimulationApp
+simulation_app = SimulationApp({"headless": False})
+
+from omni.isaac.core import World
+from omni.isaac.ros2_bridge import ROS2Bridge
+import rclpy
+
+# Initialize ROS 2
+rclpy.init()
+
+# Create world
+world = World()
+world.scene.add_default_ground_plane()
+
+# Create ROS 2 bridge
+ros_bridge = ROS2Bridge()
+
+# Add camera with ROS 2 publisher
+camera_graph_path = "/World/Camera"
+ros_bridge.create_camera_publisher(
+    camera_prim_path=camera_graph_path,
+    topic_name="/camera/image_raw",
+    frame_id="camera_frame"
+)
+
+# Add odometry publisher
+ros_bridge.create_odometry_publisher(
+    robot_prim_path="/World/Robot",
+    topic_name="/odom"
+)
+
+# Simulation loop
+world.reset()
+while simulation_app.is_running():
+    world.step(render=True)
+
+rclpy.shutdown()
+simulation_app.close()
+```
+
+### 5. Synthetic Data Generation
+
+```python
+# synthetic_data_gen.py
+from omni.isaac.synthetic_utils import SyntheticDataHelper
+from omni.replicator.core import Randomizer
+
+class DatasetGenerator:
+    def __init__(self, world):
+        self.world = world
+        self.data_helper = SyntheticDataHelper()
+
+    def randomize_scene(self):
+        """Apply domain randomization"""
+        # Randomize lighting
+        Randomizer.randomize_light_intensity(min_val=500, max_val=2000)
+
+        # Randomize object positions
+        Randomizer.randomize_object_position(
+            prim_path="/World/Cube",
+            x_range=(-0.5, 0.5),
+            y_range=(-0.5, 0.5),
+            z_range=(0.1, 0.5)
+        )
+
+        # Randomize materials
+        Randomizer.randomize_material(
+            prim_path="/World/Cube"
+        )
+
+    def capture_frame(self):
+        """Capture annotated frame"""
+        # RGB image
+        rgb = self.data_helper.get_rgb()
+
+        # Depth
+        depth = self.data_helper.get_depth()
+
+        # Semantic segmentation
+        semantic = self.data_helper.get_semantic_segmentation()
+
+        # Bounding boxes
+        bboxes = self.data_helper.get_bounding_boxes_2d()
+
+        return {
+            'rgb': rgb,
+            'depth': depth,
+            'semantic': semantic,
+            'bboxes': bboxes
+        }
+
+    def generate_dataset(self, num_samples=1000):
+        """Generate training dataset"""
+        for i in range(num_samples):
+            self.randomize_scene()
+            self.world.step(render=True)
+            data = self.capture_frame()
+            # Save to disk...
+```
+
+## Hands-On Tutorial: Warehouse Picking with Isaac Sim
+
+Build a complete warehouse robot simulation with Isaac Sim's built-in assets and tools.
+
+## Summary
+
+Isaac Sim enables:
+- GPU-accelerated physics for massive parallelization
+- Photorealistic rendering for computer vision
+- Seamless ROS 2 integration
+- Built-in synthetic data generation
+
+It's the platform of choice for AI-driven manipulation and large-scale robot fleets.
+
+## Exercises
+
+1. Install Isaac Sim and run the basic tutorial
+2. Create a scene with a mobile manipulator and objects
+3. Generate 100 annotated images for object detection training
+4. Bridge a simulated robot to ROS 2 navigation stack
+
+## Next Chapter
+
+Chapter 15 covers Isaac Gym for massively parallel RL training.
+
+---
+
+**Chapter Progress**: 14 of 26 | **Part**: NVIDIA Isaac (4/7)

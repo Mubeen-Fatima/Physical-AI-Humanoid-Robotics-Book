@@ -1,0 +1,238 @@
+# Chapter 7: ROS 2 Parameters, Launch Files, and Lifecycle Nodes
+
+## Learning Objectives
+
+- Configure ROS 2 nodes using parameters
+- Write launch files for multi-node systems
+- Understand lifecycle node states and transitions
+- Implement managed nodes for reliable operation
+- Use parameter YAML files for configuration
+
+## Prerequisites
+
+- Chapters 1-6 (Foundations and ROS 2 basics)
+- Understanding of state machines
+- YAML syntax familiarity
+
+## Introduction
+
+Production robotics systems require configuration management, orchestrated startup, and controlled lifecycle management. This chapter covers ROS 2's tools for building robust, configurable robot applications.
+
+## Core Concepts
+
+### 1. ROS 2 Parameters
+
+Parameters enable runtime configuration without code changes:
+
+```python
+# parameter_node.py
+import rclpy
+from rclpy.node import Node
+
+class ParameterizedNode(Node):
+    def __init__(self):
+        super().__init__('parameterized_node')
+
+        # Declare parameters with default values
+        self.declare_parameter('robot_name', 'default_robot')
+        self.declare_parameter('max_speed', 1.0)
+        self.declare_parameter('debug_mode', False)
+
+        # Get parameter values
+        robot_name = self.get_parameter('robot_name').value
+        max_speed = self.get_parameter('max_speed').value
+        debug_mode = self.get_parameter('debug_mode').value
+
+        self.get_logger().info(f'Robot: {robot_name}')
+        self.get_logger().info(f'Max Speed: {max_speed} m/s')
+        self.get_logger().info(f'Debug: {debug_mode}')
+
+        # Add parameter callback for dynamic updates
+        self.add_on_set_parameters_callback(self.parameter_callback)
+
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'max_speed':
+                self.get_logger().info(f'Max speed updated to: {param.value}')
+        return rclpy.parameter.SetParametersResult(successful=True)
+```
+
+**Parameter YAML file** (`config/robot_params.yaml`):
+
+```yaml
+/**:
+  ros__parameters:
+    robot_name: "atlas_bot"
+    max_speed: 2.5
+    debug_mode: true
+```
+
+### 2. Launch Files
+
+Launch files orchestrate multiple nodes:
+
+```python
+# robot_launch.py
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+
+def generate_launch_description():
+    return LaunchDescription([
+        # Declare launch arguments
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='false',
+            description='Use simulation time'
+        ),
+
+        # Launch robot state publisher
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name='robot_state_publisher',
+            parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]
+        ),
+
+        # Launch sensor drivers
+        Node(
+            package='sensors',
+            executable='lidar_driver',
+            name='lidar',
+            parameters=['config/lidar_params.yaml']
+        ),
+
+        # Launch navigation
+        Node(
+            package='navigation',
+            executable='nav_controller',
+            name='navigation',
+            parameters=['config/nav_params.yaml']
+        ),
+    ])
+```
+
+### 3. Lifecycle Nodes
+
+Lifecycle nodes provide deterministic state management:
+
+```python
+# lifecycle_talker.py
+import rclpy
+from rclpy.lifecycle import Node, State, TransitionCallbackReturn
+from std_msgs.msg import String
+
+class LifecycleTalker(Node):
+    def __init__(self, node_name, **kwargs):
+        super().__init__(node_name, **kwargs)
+        self.publisher_ = None
+        self.timer_ = None
+
+    def on_configure(self, state: State) -> TransitionCallbackReturn:
+        """Called when node transitions to 'configuring' state"""
+        self.get_logger().info('Configuring...')
+        self.publisher_ = self.create_lifecycle_publisher(String, 'topic', 10)
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        """Called when node transitions to 'activating' state"""
+        self.get_logger().info('Activating...')
+        self.timer_ = self.create_timer(1.0, self.timer_callback)
+        return super().on_activate(state)
+
+    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+        """Called when node transitions to 'deactivating' state"""
+        self.get_logger().info('Deactivating...')
+        self.destroy_timer(self.timer_)
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+        """Called when node transitions to 'cleaningup' state"""
+        self.get_logger().info('Cleaning up...')
+        self.destroy_publisher(self.publisher_)
+        return TransitionCallbackReturn.SUCCESS
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Lifecycle talker active at {self.get_clock().now()}'
+        self.publisher_.publish(msg)
+```
+
+**Lifecycle State Machine**:
+
+```
+unconfigured → configuring → inactive → activating → active
+     ↑              ↓            ↓           ↓          ↓
+     └─────────── cleaning up ←─────── deactivating ←─┘
+```
+
+## Hands-On Tutorial: Multi-Robot Launch System
+
+```python
+# multi_robot_launch.py
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch_ros.actions import Node, PushRosNamespace
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+import os
+
+def generate_launch_description():
+    robots = ['robot1', 'robot2', 'robot3']
+
+    robot_launches = []
+    for robot_name in robots:
+        robot_group = GroupAction([
+            PushRosNamespace(robot_name),
+
+            Node(
+                package='robot_controller',
+                executable='controller',
+                name='controller',
+                parameters=[{
+                    'robot_id': robot_name,
+                    'max_speed': 2.0,
+                }]
+            ),
+
+            Node(
+                package='robot_sensors',
+                executable='sensor_fusion',
+                name='sensor_fusion',
+                parameters=[f'config/{robot_name}_sensors.yaml']
+            ),
+        ])
+        robot_launches.append(robot_group)
+
+    return LaunchDescription([
+        DeclareLaunchArgument('num_robots', default_value='3'),
+        *robot_launches
+    ])
+```
+
+## Summary
+
+This chapter covered essential tools for production ROS 2 systems:
+
+- Parameters for runtime configuration
+- Launch files for orchestrating complex systems
+- Lifecycle nodes for deterministic state management
+- Multi-robot launch architectures
+
+These patterns are critical for reliable, maintainable robot software.
+
+## Exercises
+
+1. Create a parameter file for a differential drive robot with wheel radius, wheel separation, and max velocities
+2. Write a launch file that starts navigation, localization, and mapping nodes with proper namespaces
+3. Implement a lifecycle node for a camera that safely initializes hardware in `on_configure` and releases it in `on_cleanup`
+
+## Next Chapter
+
+Chapter 8 dives into ROS 2 transforms (TF2) for coordinate frame management.
+
+---
+
+**Chapter Progress**: 7 of 26 | **Part**: ROS 2 Fundamentals (2/7)

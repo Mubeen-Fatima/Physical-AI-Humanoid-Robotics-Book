@@ -1,0 +1,131 @@
+# Chapter 12: Unity Robotics and ROS-Unity Integration
+
+## Learning Objectives
+
+- Integrate Unity with ROS 2 for photorealistic simulation
+- Use Unity for computer vision algorithm development
+- Leverage Unity's rendering for synthetic data generation
+- Understand when to use Unity vs Gazebo
+
+## Prerequisites
+
+- Chapters 1-11 (ROS 2 and Gazebo fundamentals)
+- Unity basics (helpful but not required)
+- Understanding of graphics rendering
+
+## Introduction
+
+While Gazebo excels at physics simulation, Unity provides photorealistic rendering for computer vision, human-robot interaction, and synthetic data generation. This chapter covers ROS-Unity integration.
+
+## Core Concepts
+
+### 1. Unity vs Gazebo
+
+| Aspect | Gazebo | Unity |
+|--------|---------|-------|
+| **Physics** | Excellent (ODE/Bullet) | Good (PhysX) |
+| **Graphics** | Basic (OGRE) | Photorealistic (HDRP) |
+| **Use Case** | Navigation, control | Vision, HRI, synthetic data |
+| **Setup** | ROS native | Requires TCP bridge |
+| **Performance** | CPU-intensive | GPU-accelerated |
+
+### 2. ROS-Unity Setup
+
+Install Unity Robotics packages:
+
+```bash
+# In Unity Package Manager, add:
+https://github.com/Unity-Technologies/ROS-TCP-Connector.git?path=/com.unity.robotics.ros-tcp-connector
+
+# In ROS 2 workspace:
+git clone https://github.com/Unity-Technologies/ROS-TCP-Endpoint
+colcon build
+```
+
+### 3. Unity-ROS Communication
+
+```csharp
+// Unity C# script
+using UnityEngine;
+using Unity.Robotics.ROSTCPConnector;
+using RosMessageTypes.Geometry;
+
+public class RobotController : MonoBehaviour
+{
+    ROSConnection ros;
+    public string topicName = "cmd_vel";
+
+    void Start()
+    {
+        ros = ROSConnection.GetOrCreateInstance();
+        ros.RegisterPublisher<TwistMsg>(topicName);
+    }
+
+    void Update()
+    {
+        // Send velocity command
+        var twist = new TwistMsg();
+        twist.linear.x = Input.GetAxis("Vertical");
+        twist.angular.z = Input.GetAxis("Horizontal");
+        ros.Publish(topicName, twist);
+    }
+}
+```
+
+**ROS 2 endpoint**:
+
+```bash
+ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=0.0.0.0
+```
+
+### 4. Synthetic Data Generation
+
+```csharp
+// Camera data capture
+using UnityEngine.Perception.GroundTruth;
+
+public class DatasetCapture : MonoBehaviour
+{
+    PerceptionCamera perceptionCamera;
+
+    void Start()
+    {
+        perceptionCamera = GetComponent<PerceptionCamera>();
+    }
+
+    void OnEnable()
+    {
+        // Capture RGB images
+        RenderPipelineManager.endCameraRendering += CaptureFrame;
+    }
+
+    void CaptureFrame(ScriptableRenderContext context, Camera camera)
+    {
+        // Save to dataset
+        var texture = RenderTexture.active;
+        // Process and publish to ROS...
+    }
+}
+```
+
+## Hands-On Tutorial: Vision Training Dataset
+
+Create a Unity scene that generates labeled training data for object detection.
+
+## Summary
+
+Unity complements Gazebo for photorealistic rendering and computer vision development. Use Unity when visual fidelity matters.
+
+## Exercises
+
+1. Set up ROS-Unity communication
+2. Create a Unity scene with a mobile robot
+3. Generate 100 labeled images for object detection training
+
+## Next Chapter
+
+Chapter 13 covers simulation-to-reality transfer techniques.
+
+---
+
+**Chapter Progress**: 12 of 26 | **Part**: Simulation (3/7)

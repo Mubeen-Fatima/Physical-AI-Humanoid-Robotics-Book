@@ -1,0 +1,169 @@
+# Chapter 11: Advanced Gazebo - Custom Worlds and Sensor Simulation
+
+## Learning Objectives
+
+- Create custom Gazebo worlds with SDF
+- Simulate realistic sensor noise and characteristics
+- Implement custom Gazebo plugins
+- Optimize simulation performance
+- Use Gazebo for reinforcement learning environments
+
+## Prerequisites
+
+- Chapter 10 (Gazebo basics)
+- Understanding of XML/SDF syntax
+- C++ basics (for custom plugins, optional)
+
+## Introduction
+
+Real-world robots operate in complex environments with noisy sensors. This chapter teaches you to create realistic simulation environments that prepare algorithms for real deployment.
+
+## Core Concepts
+
+### 1. Custom World with SDF
+
+```xml
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="warehouse">
+    <!-- Physics -->
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- Sun light -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- Ground plane -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- Custom obstacle -->
+    <model name="box_obstacle">
+      <pose>2 1 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>1 1 1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1 1 1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.5 0.3 1</ambient>
+            <diffuse>0.7 0.5 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>
+```
+
+### 2. Realistic Camera Simulation
+
+```xml
+<gazebo reference="camera_link">
+  <sensor name="camera" type="camera">
+    <update_rate>30.0</update_rate>
+    <camera name="head">
+      <horizontal_fov>1.3962634</horizontal_fov>
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.02</near>
+        <far>300</far>
+      </clip>
+      <!-- Add realistic noise -->
+      <noise>
+        <type>gaussian</type>
+        <mean>0.0</mean>
+        <stddev>0.007</stddev>
+      </noise>
+      <!-- Lens distortion -->
+      <distortion>
+        <k1>-0.25</k1>
+        <k2>0.12</k2>
+        <p1>0.00</p1>
+        <p2>0.00</p2>
+        <center>0.5 0.5</center>
+      </distortion>
+    </camera>
+    <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+      <ros>
+        <namespace>/camera</namespace>
+        <remapping>image_raw:=image</remapping>
+        <remapping>camera_info:=camera_info</remapping>
+      </ros>
+      <frame_name>camera_link</frame_name>
+    </plugin>
+  </sensor>
+</gazebo>
+```
+
+### 3. Performance Optimization
+
+```python
+# Real-time factor monitoring
+class SimulationMonitor(Node):
+    def __init__(self):
+        super().__init__('sim_monitor')
+
+        # Subscribe to Gazebo statistics
+        self.stats_sub = self.create_subscription(
+            ModelStates,
+            '/gazebo/model_states',
+            self.stats_callback,
+            10
+        )
+
+        self.timer = self.create_timer(1.0, self.monitor_callback)
+        self.last_sim_time = None
+        self.last_real_time = None
+
+    def monitor_callback(self):
+        # Calculate real-time factor
+        if self.last_sim_time is not None:
+            sim_dt = self.get_clock().now() - self.last_sim_time
+            real_dt = time.time() - self.last_real_time
+            rtf = sim_dt / real_dt
+
+            self.get_logger().info(f'Real-time factor: {rtf:.2f}x')
+
+            if rtf < 0.5:
+                self.get_logger().warn('Simulation running slow!')
+
+        self.last_sim_time = self.get_clock().now()
+        self.last_real_time = time.time()
+```
+
+## Summary
+
+Advanced Gazebo simulation enables realistic environment and sensor modeling, critical for successful sim-to-real transfer.
+
+## Exercises
+
+1. Create a warehouse world with 10 obstacles
+2. Add Gaussian noise to a LiDAR sensor
+3. Measure and optimize your simulation's real-time factor
+
+## Next Chapter
+
+Chapter 12 introduces Unity for high-fidelity visual simulation.
+
+---
+
+**Chapter Progress**: 11 of 26 | **Part**: Simulation (3/7)

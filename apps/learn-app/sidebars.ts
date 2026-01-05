@@ -20,36 +20,35 @@ const sidebars: SidebarsConfig = {
       collapsed: true,
       items: [
         'ros2/chapter-05',
-        // 'ros2/chapter-06',
-        // 'ros2/chapter-07',
-        // 'ros2/chapter-08',
-        // 'ros2/chapter-09',
+        'ros2/chapter-06',
+        'ros2/chapter-07',
+        'ros2/chapter-08',
+        'ros2/chapter-09',
       ],
     },
-    // Uncomment as chapters are added:
-    // {
-    //   type: 'category',
-    //   label: 'Part 3: Simulation',
-    //   collapsed: true,
-    //   items: [
-    //     '03-simulation/chapter-10',
-    //     '03-simulation/chapter-11',
-    //     '03-simulation/chapter-12',
-    //     '03-simulation/chapter-13',
-    //   ],
-    // },
-    // {
-    //   type: 'category',
-    //   label: 'Part 4: NVIDIA Isaac',
-    //   collapsed: true,
-    //   items: [
-    //     '04-isaac/chapter-14',
-    //     '04-isaac/chapter-15',
-    //     '04-isaac/chapter-16',
-    //     '04-isaac/chapter-17',
-    //     '04-isaac/chapter-18',
-    //   ],
-    // },
+    {
+      type: 'category',
+      label: 'Part 3: Simulation',
+      collapsed: true,
+      items: [
+        'simulation/chapter-10',
+        'simulation/chapter-11',
+        'simulation/chapter-12',
+        'simulation/chapter-13',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Part 4: NVIDIA Isaac',
+      collapsed: true,
+      items: [
+        'isaac/chapter-14',
+        'isaac/chapter-15',
+        // 'isaac/chapter-16',
+        // 'isaac/chapter-17',
+        // 'isaac/chapter-18',
+      ],
+    },
     // {
     //   type: 'category',
     //   label: 'Part 5: Humanoid Development',

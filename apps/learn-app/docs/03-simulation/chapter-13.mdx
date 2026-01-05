@@ -1,0 +1,178 @@
+# Chapter 13: Sim-to-Real Transfer and Domain Randomization
+
+## Learning Objectives
+
+- Understand the sim-to-real gap and its causes
+- Apply domain randomization techniques
+- Use reality gap metrics for validation
+- Implement system identification for accurate modeling
+- Deploy sim-trained policies on real robots
+
+## Prerequisites
+
+- Chapters 1-12 (Complete simulation knowledge)
+- Machine learning basics helpful
+- Experience with both simulation and real robots
+
+## Introduction
+
+The sim-to-real gap—the performance difference between simulated and real environments—is robotics' greatest challenge. This chapter teaches proven techniques to bridge this gap.
+
+## Core Concepts
+
+### 1. Sources of Sim-to-Real Gap
+
+- **Physics modeling**: Friction, contact dynamics, deformation
+- **Sensor characteristics**: Noise, latency, field of view
+- **Actuator dynamics**: Backlash, compliance, delays
+- **Environmental factors**: Lighting, textures, acoustics
+
+### 2. Domain Randomization
+
+Randomize simulation parameters to create robust policies:
+
+```python
+# domain_randomization.py
+import numpy as np
+from gazebo_msgs.srv import SetPhysicsProperties
+
+class DomainRandomizer:
+    def __init__(self, node):
+        self.node = node
+        self.physics_client = node.create_client(
+            SetPhysicsProperties,
+            '/gazebo/set_physics_properties'
+        )
+
+    def randomize_physics(self):
+        """Randomize physics parameters each episode"""
+        params = SetPhysicsProperties.Request()
+
+        # Randomize gravity
+        params.gravity.z = np.random.uniform(-10.0, -9.0)
+
+        # Randomize friction
+        params.ode_config.mu = np.random.uniform(0.5, 2.0)
+
+        # Randomize solver iterations
+        params.ode_config.iters = np.random.randint(20, 100)
+
+        self.physics_client.call_async(params)
+
+    def randomize_visual(self):
+        """Randomize visual appearance"""
+        # Change lighting
+        # Randomize object colors
+        # Add texture variation
+        pass
+
+    def randomize_dynamics(self):
+        """Randomize robot dynamics"""
+        # Add mass variation
+        # Randomize joint damping
+        # Add payload uncertainty
+        pass
+```
+
+### 3. System Identification
+
+Measure real robot parameters:
+
+```python
+import numpy as np
+from scipy.optimize import minimize
+
+class SystemID:
+    def __init__(self):
+        self.measured_data = []
+
+    def collect_data(self, command, response):
+        """Collect input-output pairs from real robot"""
+        self.measured_data.append({
+            'cmd': command,
+            'response': response
+        })
+
+    def identify_parameters(self):
+        """Fit model parameters to real data"""
+        def cost_function(params):
+            total_error = 0
+            for sample in self.measured_data:
+                predicted = self.simulate_with_params(
+                    sample['cmd'],
+                    params
+                )
+                error = np.linalg.norm(
+                    predicted - sample['response']
+                )
+                total_error += error ** 2
+            return total_error
+
+        # Optimize parameters
+        initial_params = [1.0, 0.1, 0.01]  # mass, friction, damping
+        result = minimize(cost_function, initial_params)
+
+        return result.x
+
+    def simulate_with_params(self, command, params):
+        """Simulate robot response with given parameters"""
+        mass, friction, damping = params
+        # Physics simulation...
+        return predicted_response
+```
+
+### 4. Reality Gap Metrics
+
+```python
+class RealityGapMetrics:
+    def __init__(self):
+        self.sim_trajectories = []
+        self.real_trajectories = []
+
+    def compute_gap(self):
+        """Compute discrepancy between sim and real"""
+        # Position error
+        pos_error = np.mean([
+            np.linalg.norm(s[:3] - r[:3])
+            for s, r in zip(self.sim_trajectories, self.real_trajectories)
+        ])
+
+        # Velocity error
+        vel_error = np.mean([
+            np.linalg.norm(s[3:] - r[3:])
+            for s, r in zip(self.sim_trajectories, self.real_trajectories)
+        ])
+
+        return {
+            'position_rmse': pos_error,
+            'velocity_rmse': vel_error
+        }
+```
+
+## Hands-On Tutorial: Domain Randomization for Grasping
+
+Implement domain randomization for a robot grasping task to achieve robust real-world performance.
+
+## Summary
+
+Sim-to-real transfer requires:
+- Domain randomization for robust policies
+- System identification for accurate models
+- Reality gap metrics for validation
+- Iterative refinement between sim and real
+
+These techniques enable training in simulation that transfers to real robots.
+
+## Exercises
+
+1. Implement domain randomization for lighting conditions
+2. Perform system identification on a real or simulated differential drive robot
+3. Measure reality gap for a navigation task
+
+## Next Chapter
+
+Chapter 14 introduces NVIDIA Isaac Sim for GPU-accelerated, photorealistic robot simulation.
+
+---
+
+**Chapter Progress**: 13 of 26 | **Part**: Simulation (3/7)

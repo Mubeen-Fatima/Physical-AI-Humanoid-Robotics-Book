@@ -1,0 +1,232 @@
+# Chapter 15: Isaac Gym - Massively Parallel Reinforcement Learning
+
+## Learning Objectives
+
+- Understand GPU-parallelized RL training
+- Set up Isaac Gym for robot learning
+- Train manipulation policies with PPO
+- Scale training to thousands of parallel environments
+- Transfer learned policies to Isaac Sim and real robots
+
+## Prerequisites
+
+- Chapter 14 (Isaac Sim fundamentals)
+- Reinforcement learning basics (PPO, SAC)
+- PyTorch familiarity
+
+## Introduction
+
+Isaac Gym enables training robot policies 10-100x faster than traditional simulators by running thousands of environments in parallel on GPU. This chapter teaches massively parallel RL for robotics.
+
+## Core Concepts
+
+### 1. GPU-Parallel RL Architecture
+
+```
+CPU: Policy Network → Actions
+  ↓
+GPU: 4096 Parallel Environments
+  ├─ Env 1: Robot → Observation, Reward
+  ├─ Env 2: Robot → Observation, Reward
+  ...
+  └─ Env 4096: Robot → Observation, Reward
+  ↓
+CPU: Collect Rollouts → Update Policy
+```
+
+**Speed comparison**:
+- Traditional RL (single env): ~10 FPS
+- Isaac Gym (4096 envs): ~40,000 FPS
+
+### 2. Isaac Gym Task Example
+
+```python
+# franka_cube_stack.py
+from isaacgym import gymapi
+from isaacgym import gymtorch
+import torch
+
+class FrankaCubeStack:
+    def __init__(self, num_envs=4096):
+        self.num_envs = num_envs
+
+        # Initialize gym
+        self.gym = gymapi.acquire_gym()
+
+        # Create sim
+        sim_params = gymapi.SimParams()
+        sim_params.use_gpu_pipeline = True
+        sim_params.physx.use_gpu = True
+
+        self.sim = self.gym.create_sim(
+            0, 0, gymapi.SIM_PHYSX, sim_params
+        )
+
+        # Load robot asset
+        asset_root = "assets"
+        franka_asset = self.gym.load_asset(
+            self.sim, asset_root, "franka_description/robots/franka_panda.urdf"
+        )
+
+        # Create environments
+        self.envs = []
+        for i in range(num_envs):
+            env = self.gym.create_env(self.sim, gymapi.Vec3(-1, 0, -1), gymapi.Vec3(1, 1, 1), int(np.sqrt(num_envs)))
+            actor = self.gym.create_actor(env, franka_asset, gymapi.Transform(), f"franka{i}", i, 0)
+            self.envs.append(env)
+
+    def step(self, actions):
+        """Step all environments in parallel on GPU"""
+        # Apply actions
+        self.gym.set_dof_position_target_tensor(self.sim, actions)
+
+        # Step physics
+        self.gym.simulate(self.sim)
+        self.gym.fetch_results(self.sim, True)
+
+        # Get observations (all on GPU)
+        obs = self.gym.acquire_dof_state_tensor(self.sim)
+
+        # Compute rewards
+        rewards = self.compute_rewards(obs)
+
+        return obs, rewards, dones
+
+    def compute_rewards(self, obs):
+        """Vectorized reward computation on GPU"""
+        # Distance to goal
+        distances = torch.norm(obs[:, :3] - self.goal_pos, dim=1)
+        rewards = -distances
+
+        # Bonus for reaching goal
+        success_bonus = (distances < 0.05).float() * 10.0
+
+        return rewards + success_bonus
+```
+
+### 3. PPO Training Loop
+
+```python
+# ppo_trainer.py
+import torch
+import torch.nn as nn
+from torch.distributions import Normal
+
+class PPOAgent:
+    def __init__(self, obs_dim, action_dim):
+        self.policy = nn.Sequential(
+            nn.Linear(obs_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, action_dim)
+        ).cuda()
+
+        self.value = nn.Sequential(
+            nn.Linear(obs_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        ).cuda()
+
+        self.optimizer = torch.optim.Adam(
+            list(self.policy.parameters()) + list(self.value.parameters()),
+            lr=3e-4
+        )
+
+    def act(self, obs):
+        """Select actions for all environments"""
+        mean = self.policy(obs)
+        std = torch.ones_like(mean) * 0.1
+        dist = Normal(mean, std)
+        actions = dist.sample()
+        log_probs = dist.log_prob(actions).sum(dim=-1)
+
+        return actions, log_probs
+
+    def update(self, rollouts):
+        """PPO update"""
+        obs, actions, old_log_probs, returns, advantages = rollouts
+
+        # Compute new log probs
+        mean = self.policy(obs)
+        std = torch.ones_like(mean) * 0.1
+        dist = Normal(mean, std)
+        new_log_probs = dist.log_prob(actions).sum(dim=-1)
+
+        # PPO clipped objective
+        ratio = torch.exp(new_log_probs - old_log_probs)
+        clip_ratio = torch.clamp(ratio, 0.8, 1.2)
+
+        policy_loss = -torch.min(
+            ratio * advantages,
+            clip_ratio * advantages
+        ).mean()
+
+        # Value loss
+        value_pred = self.value(obs).squeeze()
+        value_loss = (value_pred - returns).pow(2).mean()
+
+        # Total loss
+        loss = policy_loss + 0.5 * value_loss
+
+        # Update
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item()
+
+# Training loop
+def train():
+    env = FrankaCubeStack(num_envs=4096)
+    agent = PPOAgent(obs_dim=13, action_dim=7)
+
+    for epoch in range(1000):
+        obs = env.reset()
+
+        for step in range(128):
+            actions, log_probs = agent.act(obs)
+            next_obs, rewards, dones = env.step(actions)
+
+            # Store rollout
+            # ...
+
+            obs = next_obs
+
+        # Update policy
+        loss = agent.update(rollouts)
+        print(f"Epoch {epoch}, Loss: {loss:.4f}")
+```
+
+## Performance Benchmarks
+
+| Task | Envs | FPS | Time to Success |
+|------|------|-----|-----------------|
+| Cube Reach | 4096 | 45,000 | 5 minutes |
+| Cube Stack | 4096 | 40,000 | 15 minutes |
+| Door Open | 8192 | 50,000 | 10 minutes |
+
+Compare to CPU-based RL: **100-1000x faster**.
+
+## Summary
+
+Isaac Gym revolutionizes robot learning through:
+- GPU-parallel physics and RL
+- 10-100x training speedup
+- Seamless sim-to-real transfer with domain randomization
+
+This enables rapid prototyping of learned robot behaviors.
+
+## Exercises
+
+1. Train a Franka arm to reach a target position (5 minutes)
+2. Implement curriculum learning for cube stacking
+3. Transfer a trained policy to Isaac Sim for visualization
+
+## Next Chapter
+
+Chapter 16 covers practical manipulation tasks with Isaac.
+
+---
+
+**Chapter Progress**: 15 of 26 | **Part**: NVIDIA Isaac (4/7)
