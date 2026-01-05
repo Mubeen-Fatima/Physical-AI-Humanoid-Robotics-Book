@@ -1,0 +1,115 @@
+# Chapter 5: ROS 2 Navigation Stack
+
+## Learning Objectives
+
+- Understand the ROS 2 Navigation2 (Nav2) stack architecture
+- Configure cost maps for obstacle avoidance
+- Implement path planning and execution
+- Integrate sensor data for SLAM (Simultaneous Localization and Mapping)
+
+## Prerequisites
+
+- Chapters 1-4 (Foundations and basic ROS 2)
+- Understanding of coordinate transforms
+- Familiarity with ROS 2 launch files
+
+## Introduction
+
+Navigation is a core capability for mobile robots. The ROS 2 Navigation2 stack provides a complete solution for autonomous navigation, from mapping environments to planning collision-free paths.
+
+## Core Concepts
+
+### 1. Navigation2 Architecture
+
+The Nav2 stack consists of several key servers:
+
+- **Map Server**: Provides static maps
+- **AMCL**: Adaptive Monte Carlo Localization for pose estimation
+- **Planner Server**: Global and local path planning
+- **Controller Server**: Path following and obstacle avoidance
+- **Behavior Server**: Recovery behaviors when navigation fails
+
+### 2. Cost Maps
+
+Cost maps represent the traversability of space:
+
+```yaml
+# costmap_common.yaml
+costmap:
+  global_frame: map
+  robot_base_frame: base_link
+  update_frequency: 5.0
+  publish_frequency: 2.0
+
+  plugins:
+    - static_layer
+    - obstacle_layer
+    - inflation_layer
+
+  inflation_layer:
+    plugin: "nav2_costmap_2d::InflationLayer"
+    cost_scaling_factor: 3.0
+    inflation_radius: 0.55
+```
+
+## Hands-On Tutorial: Basic Navigation Setup
+
+```python
+# nav2_example.py
+from geometry_msgs.msg import PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator
+import rclpy
+
+def main():
+    rclpy.init()
+    navigator = BasicNavigator()
+
+    # Set initial pose
+    initial_pose = PoseStamped()
+    initial_pose.header.frame_id = 'map'
+    initial_pose.header.stamp = navigator.get_clock().now().to_msg()
+    initial_pose.pose.position.x = 0.0
+    initial_pose.pose.position.y = 0.0
+    navigator.setInitialPose(initial_pose)
+
+    # Wait for Nav2 to be active
+    navigator.waitUntilNav2Active()
+
+    # Send goal
+    goal_pose = PoseStamped()
+    goal_pose.header.frame_id = 'map'
+    goal_pose.header.stamp = navigator.get_clock().now().to_msg()
+    goal_pose.pose.position.x = 2.0
+    goal_pose.pose.position.y = 1.0
+    navigator.goToPose(goal_pose)
+
+    # Monitor progress
+    while not navigator.isTaskComplete():
+        feedback = navigator.getFeedback()
+        print(f"Distance remaining: {feedback.distance_remaining:.2f} m")
+
+    print("Goal reached!")
+    navigator.lifecycleShutdown()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Summary
+
+This chapter introduced the ROS 2 Navigation2 stack, cost maps, and autonomous navigation. You learned how to configure Nav2 and send navigation goals programmatically.
+
+## Exercises
+
+1. Configure Nav2 for a differential drive robot
+2. Create a custom cost map layer for dynamic obstacles
+3. Implement waypoint following using Nav2
+
+## Next Chapter
+
+Chapter 6 covers advanced ROS 2 topics including lifecycle nodes and quality of service settings.
+
+---
+
+**Chapter Progress**: 5 of 26 | **Part**: ROS 2 Fundamentals (2/7)

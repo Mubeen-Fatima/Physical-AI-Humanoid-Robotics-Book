@@ -1,0 +1,110 @@
+# Chapter 2: Robotics Software Stack & ROS 2 Introduction
+
+## Learning Objectives
+
+By the end of this chapter, you will be able to:
+
+- Understand the layered architecture of modern robotics software
+- Explain the role of middleware in robotics systems
+- Describe the evolution from ROS 1 to ROS 2
+- Set up a basic ROS 2 workspace
+- Understand the publish-subscribe communication pattern
+
+## Prerequisites
+
+- Completion of Chapter 1 (Introduction to Physical AI)
+- Linux command line familiarity
+- Python programming experience
+
+## Introduction
+
+Building physical AI systems requires managing complexity across hardware, sensors, actuators, perception, planning, and control. The Robot Operating System (ROS 2) provides the middleware and tools to orchestrate these components effectively.
+
+This chapter introduces the robotics software stack and ROS 2 fundamentals.
+
+## Core Concepts
+
+### 1. The Robotics Software Stack
+
+Modern robotics systems are typically organized in layers:
+
+```
+┌─────────────────────────────────────┐
+│  Application Layer                  │  ← High-level AI (planning, learning)
+├─────────────────────────────────────┤
+│  Middleware Layer (ROS 2)           │  ← Communication, coordination
+├─────────────────────────────────────┤
+│  Driver Layer                       │  ← Hardware interfaces
+├─────────────────────────────────────┤
+│  Operating System (Linux)           │  ← Resource management
+├─────────────────────────────────────┤
+│  Hardware Layer                     │  ← Sensors, actuators, compute
+└─────────────────────────────────────┘
+```
+
+### 2. Why ROS 2?
+
+ROS 2 is the de facto standard for robotics development because it provides:
+
+- **Modularity**: Components communicate via standard interfaces
+- **Scalability**: From single robots to multi-robot systems
+- **Real-time capable**: DDS middleware supports hard real-time constraints
+- **Cross-platform**: Works on Linux, Windows, macOS
+- **Rich ecosystem**: Thousands of pre-built packages
+
+**Key differences from ROS 1**:
+- Real-time support via DDS
+- Better security
+- Native multi-robot communication
+- No single point of failure (no roscore)
+
+## Hands-On Tutorial: First ROS 2 Node
+
+```python
+# File: my_first_node.py
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalPublisher(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.publisher_ = self.create_publisher(String, 'topic', 10)
+        self.timer = self.create_timer(0.5, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello Physical AI: {self.i}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MinimalPublisher()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Summary
+
+This chapter introduced the robotics software stack and ROS 2, the middleware that will power all our physical AI systems. You learned about the layered architecture, why ROS 2 represents a major improvement over ROS 1, and created your first ROS 2 node.
+
+## Exercises
+
+1. Install ROS 2 Humble on Ubuntu 22.04
+2. Create a subscriber node that listens to the publisher from the tutorial
+3. Research the DDS middleware used by ROS 2
+
+## Next Chapter
+
+Chapter 3 will dive deeper into ROS 2 concepts: nodes, topics, services, and actions.
+
+---
+
+**Chapter Progress**: 2 of 26 | **Part**: Foundations (1/7)

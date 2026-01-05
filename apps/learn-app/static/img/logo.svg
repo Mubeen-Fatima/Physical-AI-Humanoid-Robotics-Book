@@ -1,0 +1,29 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Robot head outline -->
+  <rect x="8" y="10" width="24" height="20" rx="3" fill="#2680eb" stroke="#ffffff" stroke-width="1.5"/>
+
+  <!-- Antenna -->
+  <line x1="20" y1="4" x2="20" y2="10" stroke="#2680eb" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="20" cy="3" r="2" fill="#2680eb"/>
+
+  <!-- Eyes -->
+  <circle cx="15" cy="18" r="2.5" fill="#ffffff"/>
+  <circle cx="25" cy="18" r="2.5" fill="#ffffff"/>
+
+  <!-- Eye pupils -->
+  <circle cx="15" cy="18" r="1" fill="#2680eb"/>
+  <circle cx="25" cy="18" r="1" fill="#2680eb"/>
+
+  <!-- Mouth/speaker grill -->
+  <rect x="14" y="24" width="12" height="3" rx="1.5" fill="#ffffff" opacity="0.8"/>
+  <line x1="15" y1="25.5" x2="17" y2="25.5" stroke="#2680eb" stroke-width="1"/>
+  <line x1="19" y1="25.5" x2="21" y2="25.5" stroke="#2680eb" stroke-width="1"/>
+  <line x1="23" y1="25.5" x2="25" y2="25.5" stroke="#2680eb" stroke-width="1"/>
+
+  <!-- Body -->
+  <rect x="10" y="30" width="20" height="8" rx="2" fill="#4d96ef" stroke="#ffffff" stroke-width="1.5"/>
+
+  <!-- Arms -->
+  <rect x="5" y="32" width="4" height="4" rx="1" fill="#2680eb"/>
+  <rect x="31" y="32" width="4" height="4" rx="1" fill="#2680eb"/>
+</svg>

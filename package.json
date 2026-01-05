@@ -1,0 +1,39 @@
+{
+  "name": "physical-ai-textbook",
+  "version": "1.0.0",
+  "description": "Interactive textbook for Physical AI and Humanoid Robotics with RAG chatbot",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter learn-app dev",
+    "build": "pnpm --filter learn-app build",
+    "serve": "pnpm --filter learn-app serve",
+    "clean": "pnpm -r clean",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,mdx}\"",
+    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\""
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.1.1",
+    "eslint": "^8.56.0"
+  },
+  "keywords": [
+    "physical-ai",
+    "robotics",
+    "humanoid",
+    "ros2",
+    "isaac-sim",
+    "education",
+    "docusaurus",
+    "rag",
+    "chatbot"
+  ],
+  "author": "Panaversity",
+  "license": "MIT"
+}
