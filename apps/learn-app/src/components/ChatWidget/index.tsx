@@ -83,6 +83,8 @@ export default function ChatWidget(): JSX.Element {
     }
   };
 
+  console.log('ChatWidget rendering'); // Debug log
+
   return (
     <>
       {/* Floating Chat Button */}

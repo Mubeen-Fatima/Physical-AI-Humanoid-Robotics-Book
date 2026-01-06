@@ -62,8 +62,10 @@ export default function ChatSection(): JSX.Element {
     }
   };
 
+  console.log('ChatSection rendering'); // Debug log
+
   return (
-    <section className={styles.chatSection}>
+    <section className={styles.chatSection} style={{ display: 'block' }}>
       <div className="container">
         <div className={styles.chatContainer}>
           <h2 className={styles.chatTitle}>
