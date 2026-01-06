@@ -1,9 +1,21 @@
-/* Chat Section at Bottom of Landing Page */
+/* Chat Section at Bottom of Landing Page - Sticky */
 
 .chatSection {
-  padding: 6rem 0 4rem;
-  background: linear-gradient(180deg, transparent 0%, rgba(59, 130, 246, 0.03) 100%);
-  position: relative;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.95) 40%, rgba(255, 255, 255, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  z-index: 999;
+  border-top: 1px solid rgba(59, 130, 246, 0.1);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .chatSection {
+  background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.95) 40%, rgba(15, 23, 42, 0.98) 100%);
+  border-top-color: rgba(59, 130, 246, 0.2);
 }
 
 .chatContainer {
@@ -13,9 +25,9 @@
 }
 
 .chatTitle {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   -webkit-background-clip: text;
@@ -24,9 +36,9 @@
 }
 
 .chatSubtitle {
-  font-size: 1.25rem;
-  color: var(--ifm-color-emphasis-700);
-  margin-bottom: 3rem;
+  font-size: 0.9375rem;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 1rem;
 }
 
 /* Transparent Chat Widget */

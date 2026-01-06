@@ -285,3 +285,14 @@ a:hover {
 .container {
   max-width: 1280px;
 }
+
+/* Add padding to body for sticky chat section */
+body {
+  padding-bottom: 280px;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 320px;
+  }
+}
