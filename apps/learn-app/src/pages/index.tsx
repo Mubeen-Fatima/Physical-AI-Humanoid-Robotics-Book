@@ -5,6 +5,7 @@ import ValueCards from '@site/src/components/LandingPage/ValueCards';
 import ComparisonTable from '@site/src/components/LandingPage/ComparisonTable';
 import LearningPath from '@site/src/components/LandingPage/LearningPath';
 import HardwareTiers from '@site/src/components/LandingPage/HardwareTiers';
+import ChatSection from '@site/src/components/LandingPage/ChatSection';
 
 export default function Home(): JSX.Element {
   return (
@@ -17,6 +18,7 @@ export default function Home(): JSX.Element {
         <ComparisonTable />
         <LearningPath />
         <HardwareTiers />
+        <ChatSection />
       </main>
     </Layout>
   );
