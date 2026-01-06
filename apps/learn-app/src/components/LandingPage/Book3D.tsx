@@ -29,7 +29,7 @@ export default function Book3D({ coverImage, title, alt }: Book3DProps): JSX.Ele
   };
 
   return (
-    <div className={styles.booksSection}>
+    <div id="featured-textbook" className={styles.booksSection}>
       <h2 className={styles.booksHeading}>Featured Textbook</h2>
 
       <div

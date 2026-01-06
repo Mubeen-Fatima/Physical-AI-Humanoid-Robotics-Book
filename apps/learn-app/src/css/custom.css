@@ -110,31 +110,79 @@ table {
 /* Button enhancements - Agent Factory style */
 .button {
   font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 1.0625rem;
   padding: 0.75rem 1.5rem;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.button:hover::before {
+  left: 100%;
 }
 
 .button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.button--primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.button--primary:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.button--secondary {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.button--secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .button--lg {
   font-size: 1.125rem;
-  padding: 0.875rem 2rem;
+  padding: 1rem 2.25rem;
+  font-weight: 700;
 }
 
 /* Navbar customization */
 .navbar {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  padding: 0.75rem 0;
+  padding: 0.875rem 0;
 }
 
 .navbar__title {
   font-weight: 700;
-  font-size: 1.125rem;
+  font-size: 1.375rem;
+}
+
+.navbar__item {
+  font-size: 1.0625rem;
+}
+
+.navbar__link {
+  font-size: 1.0625rem;
+  font-weight: 500;
 }
 
 /* Footer customization */
