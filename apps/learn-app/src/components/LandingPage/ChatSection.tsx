@@ -43,6 +43,10 @@ export default function ChatSection(): JSX.Element {
     }, 1000);
   };
 
+  const handleClear = () => {
+    setMessages([]);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -56,6 +60,10 @@ export default function ChatSection(): JSX.Element {
       {messages.length > 0 && (
         <div className={styles.messagesWrapper}>
           <div className={styles.messagesList}>
+            {/* Clear button at top of messages */}
+            <button className={styles.clearButton} onClick={handleClear} title="Clear chat">
+              ✕ Clear
+            </button>
             {messages.map((message) => (
               <div
                 key={message.id}

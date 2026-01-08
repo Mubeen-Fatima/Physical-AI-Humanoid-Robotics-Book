@@ -1,62 +1,31 @@
+/**
+ * ChatWidget Component
+ *
+ * Floating chatbot widget with toggle button and chat panel
+ * Integrates with RAG backend for textbook Q&A
+ */
+
 import React, { useState } from 'react';
+import ChatPanel from './ChatPanel';
 import styles from './ChatWidget.module.css';
 
 export default function ChatWidget(): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    setIsLoading(true);
-    // TODO: Implement actual chat API call
-    console.log('Sending message:', input);
-    setInput('');
-    setIsLoading(false);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   return (
-    <>
+    <div className={styles.chatWidget}>
       {/* Floating Chat Button */}
       <button
         className={styles.chatButton}
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle chat"
+        aria-label={isOpen ? 'Close chat' : 'Open chat'}
+        title={isOpen ? 'Close chat' : 'Ask a question'}
       >
         {isOpen ? '✕' : '💬'}
       </button>
 
-      {/* Chat Panel */}
-      {isOpen && (
-        <div className={styles.chatPanel}>
-          <div className={styles.inputWrapper}>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="Ask a question..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={isLoading}
-            />
-            <button
-              className={styles.sendButton}
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+      {/* Chat Panel (conditionally rendered) */}
+      {isOpen && <ChatPanel onClose={() => setIsOpen(false)} />}
+    </div>
   );
 }

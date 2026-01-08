@@ -1,7 +1,8 @@
 """Chat API router for handling chatbot requests."""
 
 from fastapi import APIRouter, HTTPException, status
-from backend.app.models.chat import ChatRequest, ChatResponse, ChatSelectedRequest
+from backend.app.models.chat import ChatRequest, ChatResponse, ChatSelectedRequest, ChatSource
+from backend.app.services.rag import rag_service
 import logging
 import uuid
 
@@ -30,19 +31,33 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
         logger.info(f"Chat request: {request.message[:50]}... | conv_id: {conv_id}")
 
-        # TODO: Implement RAG pipeline (will be added in Phase 5 - User Story 2)
-        # For now, return a placeholder response
+        # Call RAG service
+        rag_response = await rag_service.generate_response(
+            query=request.message,
+            conversation_history=None,  # TODO: Add session-based history storage
+        )
+
+        # Convert sources to ChatSource format
+        sources = [
+            ChatSource(
+                chapter=source.chapter,
+                heading=source.heading,
+                url=source.url,
+            )
+            for source in rag_response.sources
+        ]
+
         return ChatResponse(
-            response="Chatbot functionality will be implemented in Phase 5 (User Story 2).",
-            sources=[],
+            response=rag_response.response,
+            sources=sources,
             conversation_id=conv_id,
         )
 
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process chat request",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again.",
         ) from e
 
 
@@ -69,17 +84,33 @@ async def chat_selected(request: ChatSelectedRequest) -> ChatResponse:
             f"chapter: {request.source_chapter} | conv_id: {conv_id}"
         )
 
-        # TODO: Implement selected text RAG (will be added in Phase 6 - User Story 3)
-        # For now, return a placeholder response
+        # Call RAG service with selected text context
+        rag_response = await rag_service.generate_response(
+            query=request.message,
+            conversation_history=None,
+            selected_text=request.selected_text,
+            source_chapter=request.source_chapter,
+        )
+
+        # Convert sources to ChatSource format
+        sources = [
+            ChatSource(
+                chapter=source.chapter,
+                heading=source.heading,
+                url=source.url,
+            )
+            for source in rag_response.sources
+        ]
+
         return ChatResponse(
-            response="Selected text functionality will be implemented in Phase 6 (User Story 3).",
-            sources=[],
+            response=rag_response.response,
+            sources=sources,
             conversation_id=conv_id,
         )
 
     except Exception as e:
         logger.error(f"Error in chat/selected endpoint: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process selected text request",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again.",
         ) from e

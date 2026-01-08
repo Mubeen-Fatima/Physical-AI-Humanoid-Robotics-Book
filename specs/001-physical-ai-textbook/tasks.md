@@ -47,8 +47,8 @@
 - [X] T013 [P] Setup backend/app/routers/chat.py with router skeleton for /api/chat endpoints
 - [X] T014 [P] Create backend/app/services/gemini_client.py with Gemini API wrapper and retry logic (2s exponential backoff)
 - [X] T015 [P] Create backend/app/services/qdrant_client.py with vector store operations and storage monitoring (80%/95% warnings)
-- [ ] T016 Install pnpm dependencies in apps/learn-app/ (@docusaurus/core, react, typescript)
-- [ ] T017 Install Python dependencies in backend/ (fastapi, uvicorn, google-generativeai, qdrant-client, pydantic, python-dotenv)
+- [X] T016 Install pnpm dependencies in apps/learn-app/ (@docusaurus/core, react, typescript)
+- [X] T017 Install Python dependencies in backend/ (fastapi, uvicorn, google-generativeai, qdrant-client, pydantic, python-dotenv)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -85,19 +85,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] Create apps/learn-app/docs/preface.mdx with introduction to Physical AI and book structure
-- [ ] T029 [P] [US1] Create apps/learn-app/docs/01-foundations/ directory with placeholder for Chapters 1-4
-- [ ] T030 [P] [US1] Create apps/learn-app/docs/02-ros2/ directory with placeholder for Chapters 5-9
-- [ ] T031 [P] [US1] Create apps/learn-app/docs/03-simulation/ directory with placeholder for Chapters 10-13
-- [ ] T032 [P] [US1] Create apps/learn-app/docs/04-isaac/ directory with placeholder for Chapters 14-18
-- [ ] T033 [P] [US1] Create apps/learn-app/docs/05-humanoid/ directory with placeholder for Chapters 19-22
-- [ ] T034 [P] [US1] Create apps/learn-app/docs/06-vla/ directory with placeholder for Chapters 23-25
-- [ ] T035 [P] [US1] Create apps/learn-app/docs/07-capstone/ directory with placeholder for Chapter 26
-- [ ] T036 [US1] Create sample chapter apps/learn-app/docs/01-foundations/chapter-01.mdx with learning objectives, prerequisites, concepts, hands-on tutorial, summary, and exercises sections
-- [ ] T037 [US1] Add syntax-highlighted code example to sample chapter with Python/ROS 2 code
-- [ ] T038 [US1] Configure apps/learn-app/sidebars.ts to organize 26 chapters into 7 parts with navigation
-- [ ] T039 [US1] Test chapter navigation (previous/next buttons) between preface and Chapter 1
-- [ ] T040 [US1] Verify code syntax highlighting renders correctly in Docusaurus
+- [X] T028 [US1] Create apps/learn-app/docs/preface.mdx with introduction to Physical AI and book structure
+- [X] T029 [P] [US1] Create apps/learn-app/docs/01-foundations/ directory with placeholder for Chapters 1-4
+- [X] T030 [P] [US1] Create apps/learn-app/docs/02-ros2/ directory with placeholder for Chapters 5-9
+- [X] T031 [P] [US1] Create apps/learn-app/docs/03-simulation/ directory with placeholder for Chapters 10-13
+- [X] T032 [P] [US1] Create apps/learn-app/docs/04-isaac/ directory with placeholder for Chapters 14-18
+- [X] T033 [P] [US1] Create apps/learn-app/docs/05-humanoid/ directory with placeholder for Chapters 19-22
+- [X] T034 [P] [US1] Create apps/learn-app/docs/06-vla/ directory with placeholder for Chapters 23-25
+- [X] T035 [P] [US1] Create apps/learn-app/docs/07-capstone/ directory with placeholder for Chapter 26
+- [X] T036 [US1] Create sample chapter apps/learn-app/docs/01-foundations/chapter-01.mdx with learning objectives, prerequisites, concepts, hands-on tutorial, summary, and exercises sections
+- [X] T037 [US1] Add syntax-highlighted code example to sample chapter with Python/ROS 2 code
+- [X] T038 [US1] Configure apps/learn-app/sidebars.ts to organize 26 chapters into 7 parts with navigation
+- [X] T039 [US1] Test chapter navigation (previous/next buttons) between preface and Chapter 1
+- [X] T040 [US1] Verify code syntax highlighting renders correctly in Docusaurus
 
 **Checkpoint**: Book structure complete with navigable chapters and code examples
 
@@ -111,24 +111,24 @@
 
 ### Implementation for User Story 2
 
-- [ ] T041 [US2] Create backend/app/services/mdx_parser.py to parse MDX, chunk by h2 headings, extract metadata
-- [ ] T042 [US2] Create backend/scripts/ingest.py to parse docs/ directory, generate embeddings, upload to Qdrant
-- [ ] T043 [US2] Implement POST /api/chat endpoint in backend/app/routers/chat.py accepting message and conversation_id
-- [ ] T044 [US2] Create backend/app/services/rag.py with RAG pipeline (embed query → search Qdrant top 5 → generate with Gemini → return with citations)
-- [ ] T045 [US2] Integrate gemini_client.py for embeddings (text-embedding-004) in rag.py
-- [ ] T046 [US2] Integrate gemini_client.py for response generation (Gemini 1.5 Flash) in rag.py
-- [ ] T047 [US2] Integrate qdrant_client.py for vector search in rag.py
-- [ ] T048 [US2] Format response with source citations (chapter, heading, URL) in ChatResponse model
-- [ ] T049 [US2] Add error handling for out-of-scope questions (FR-018) in rag.py
-- [ ] T050 [P] [US2] Create apps/learn-app/src/components/ChatWidget/index.tsx with floating button UI
-- [ ] T051 [P] [US2] Create apps/learn-app/src/components/ChatWidget/ChatPanel.tsx with chat interface
-- [ ] T052 [P] [US2] Create apps/learn-app/src/components/ChatWidget/MessageList.tsx to display conversation history
-- [ ] T053 [US2] Create apps/learn-app/src/components/ChatWidget/RateLimiter.ts for client-side 15 RPM tracking and queuing
-- [ ] T054 [US2] Implement API call to POST /api/chat from ChatPanel.tsx with retry logic (2s exponential backoff)
-- [ ] T055 [US2] Store conversation context in browser memory (session-only, no persistence)
-- [ ] T056 [US2] Render source citations as clickable links to chapters in MessageList.tsx
-- [ ] T057 [US2] Add rate limit warning UI when approaching 14/15 requests per minute
-- [ ] T058 [US2] Inject ChatWidget component into all Docusaurus pages via theme customization
+- [X] T041 [US2] Create backend/app/services/mdx_parser.py to parse MDX, chunk by h2 headings, extract metadata
+- [X] T042 [US2] Create backend/scripts/ingest.py to parse docs/ directory, generate embeddings, upload to Qdrant
+- [X] T043 [US2] Implement POST /api/chat endpoint in backend/app/routers/chat.py accepting message and conversation_id
+- [X] T044 [US2] Create backend/app/services/rag.py with RAG pipeline (embed query → search Qdrant top 5 → generate with Gemini → return with citations)
+- [X] T045 [US2] Integrate gemini_client.py for embeddings (text-embedding-004) in rag.py
+- [X] T046 [US2] Integrate gemini_client.py for response generation (Gemini 1.5 Flash) in rag.py
+- [X] T047 [US2] Integrate qdrant_client.py for vector search in rag.py
+- [X] T048 [US2] Format response with source citations (chapter, heading, URL) in ChatResponse model
+- [X] T049 [US2] Add error handling for out-of-scope questions (FR-018) in rag.py
+- [X] T050 [P] [US2] Create apps/learn-app/src/components/ChatWidget/index.tsx with floating button UI
+- [X] T051 [P] [US2] Create apps/learn-app/src/components/ChatWidget/ChatPanel.tsx with chat interface
+- [X] T052 [P] [US2] Create apps/learn-app/src/components/ChatWidget/MessageList.tsx to display conversation history
+- [X] T053 [US2] Create apps/learn-app/src/components/ChatWidget/RateLimiter.ts for client-side 15 RPM tracking and queuing
+- [X] T054 [US2] Implement API call to POST /api/chat from ChatPanel.tsx with retry logic (2s exponential backoff)
+- [X] T055 [US2] Store conversation context in browser memory (session-only, no persistence)
+- [X] T056 [US2] Render source citations as clickable links to chapters in MessageList.tsx
+- [X] T057 [US2] Add rate limit warning UI when approaching 14/15 requests per minute
+- [X] T058 [US2] Inject ChatWidget component into all Docusaurus pages via theme customization
 
 **Checkpoint**: Chatbot fully functional with RAG, citations, and rate limiting
 

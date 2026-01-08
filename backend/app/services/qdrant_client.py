@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 class QdrantVectorStore:
     """Wrapper for Qdrant Cloud with storage monitoring."""
 
-    def __init__(self) -> None:
+    def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None) -> None:
         """Initialize Qdrant client."""
         self.client = QdrantClient(
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key,
+            url=url or settings.qdrant_url,
+            api_key=api_key or settings.qdrant_api_key,
         )
         self.collection_name = "textbook_chunks"
         self.vector_size = 768  # Gemini text-embedding-004 dimension
@@ -152,6 +152,73 @@ class QdrantVectorStore:
         except Exception as e:
             logger.error(f"Upsert failed: {str(e)}")
             raise
+
+    async def collection_exists(self, collection_name: str) -> bool:
+        """Check if a collection exists."""
+        try:
+            collections = await asyncio.to_thread(self.client.get_collections)
+            return collection_name in [c.name for c in collections.collections]
+        except Exception as e:
+            logger.error(f"Failed to check collection existence: {str(e)}")
+            return False
+
+    async def delete_collection(self, collection_name: str) -> None:
+        """Delete a collection."""
+        try:
+            await asyncio.to_thread(self.client.delete_collection, collection_name=collection_name)
+            logger.info(f"Deleted collection: {collection_name}")
+        except Exception as e:
+            logger.error(f"Failed to delete collection: {str(e)}")
+            raise
+
+    async def create_collection(self, collection_name: str, vector_dim: int) -> None:
+        """Create a new collection."""
+        try:
+            await asyncio.to_thread(
+                self.client.create_collection,
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_dim, distance=Distance.COSINE),
+            )
+            logger.info(f"Created collection: {collection_name}")
+        except Exception as e:
+            logger.error(f"Failed to create collection: {str(e)}")
+            raise
+
+    async def upsert_points(self, collection_name: str, points: list[dict]) -> None:
+        """Upsert points to a collection."""
+        try:
+            point_structs = [
+                PointStruct(
+                    id=point["id"],
+                    vector=point["vector"],
+                    payload=point["payload"],
+                )
+                for point in points
+            ]
+
+            await asyncio.to_thread(
+                self.client.upsert,
+                collection_name=collection_name,
+                points=point_structs,
+            )
+            logger.debug(f"Upserted {len(points)} points to {collection_name}")
+        except Exception as e:
+            logger.error(f"Failed to upsert points: {str(e)}")
+            raise
+
+    async def get_storage_usage(self) -> dict:
+        """Get storage usage information."""
+        try:
+            collection_info = await asyncio.to_thread(
+                self.client.get_collection, collection_name=self.collection_name
+            )
+            point_count = collection_info.points_count
+            # Estimate bytes (rough approximation)
+            estimated_bytes = point_count * self.vector_size * 4  # 4 bytes per float
+            return {"usage_bytes": estimated_bytes, "point_count": point_count}
+        except Exception as e:
+            logger.error(f"Failed to get storage usage: {str(e)}")
+            return {"usage_bytes": 0, "point_count": 0}
 
 
 # Import asyncio for to_thread usage

@@ -61,6 +61,27 @@ class GeminiClient:
         # This should never be reached due to raise in except block
         raise RuntimeError("Unexpected code path in generate_embedding")
 
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """
+        Generate embeddings for a batch of texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of embedding vectors
+
+        Raises:
+            Exception: If embedding generation fails after retries
+        """
+        embeddings = []
+        for text in texts:
+            embedding = await self.generate_embedding(text)
+            embeddings.append(embedding)
+            # Small delay to respect rate limits
+            await asyncio.sleep(0.1)
+        return embeddings
+
     async def generate_response(
         self, prompt: str, context: Optional[str] = None
     ) -> str:

@@ -10,6 +10,17 @@
   width: 100%;
   max-width: 700px;
   padding: 0 1rem 1.5rem;
+  /* Overall border with transparency */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(5px);
+  border: 2px solid rgba(59, 130, 246, 0.25);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+}
+
+[data-theme='dark'] .chatContainer {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 /* Messages grow upward from input */
@@ -78,26 +89,27 @@
 
 .userMessage {
   align-self: flex-end;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: var(--ifm-font-color-base);
+  background: rgba(59, 130, 246, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: white;
 }
 
 .assistantMessage {
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   color: var(--ifm-font-color-base);
 }
 
 [data-theme='dark'] .assistantMessage {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
 }
 
 [data-theme='dark'] .userMessage {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
 .loading {
