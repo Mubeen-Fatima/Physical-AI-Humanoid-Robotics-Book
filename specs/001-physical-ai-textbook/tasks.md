@@ -163,8 +163,8 @@
 
 ### Implementation for User Story 5
 
-- [ ] T067 [US5] Update Hero.tsx "Panaversity" button with href to Panaversity URL and target="_blank"
-- [ ] T068 [US5] Add rel="noopener noreferrer" for security to external link
+- [X] T067 [US5] Update Hero.tsx "Panaversity" button with href to Panaversity URL and target="_blank"
+- [X] T068 [US5] Add rel="noopener noreferrer" for security to external link
 
 **Checkpoint**: Panaversity link functional
 

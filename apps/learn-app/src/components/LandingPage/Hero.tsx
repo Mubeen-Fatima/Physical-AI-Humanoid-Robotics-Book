@@ -48,10 +48,10 @@ export default function Hero(): JSX.Element {
               </Link>
               <Link
                 className="button button--secondary button--lg"
-                to="https://mubeenf.com"
+                to="https://panaversity.org"
                 target="_blank"
                 rel="noopener noreferrer">
-                🌐 mubeenf.com
+                🌐 Panaversity
               </Link>
             </div>
           </div>
