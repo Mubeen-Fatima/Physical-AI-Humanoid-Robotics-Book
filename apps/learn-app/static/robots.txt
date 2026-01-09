@@ -1,0 +1,18 @@
+# Robots.txt for Physical AI & Humanoid Robotics Textbook
+# https://developers.google.com/search/docs/crawling-indexing/robots/intro
+
+User-agent: *
+Allow: /
+
+# Allow all search engines to crawl the textbook content
+Allow: /docs/
+Allow: /img/
+Allow: /assets/
+
+# Disallow admin or internal paths (if any exist)
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://mubeen-fatima.github.io/robotics_book/sitemap.xml

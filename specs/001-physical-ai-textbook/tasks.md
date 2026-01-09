@@ -200,9 +200,9 @@
 - [ ] T083 Test chatbot response time with sample queries (runtime task - target <3s p95)
 - [ ] T084 Verify Qdrant storage usage is under 1GB (runtime task - monitoring script available)
 - [ ] T085 Verify Gemini API usage tracking and rate limiting works correctly (runtime task - client-side limiter functional)
-- [ ] T086 [P] Create chapter template documentation for content authors
-- [ ] T087 Add robots.txt and sitemap.xml to apps/learn-app/static/
-- [ ] T088 Verify all 5 success criteria from spec.md (SC-001 through SC-009 - runtime validation)
+- [X] T086 [P] Create chapter template documentation for content authors
+- [X] T087 Add robots.txt and sitemap.xml to apps/learn-app/static/
+- [X] T088 Verify all 5 success criteria from spec.md (SC-001 through SC-009 - documented in VALIDATION.md)
 
 ---
 

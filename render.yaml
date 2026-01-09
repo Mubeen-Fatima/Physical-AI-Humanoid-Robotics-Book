@@ -1,0 +1,29 @@
+# Render Blueprint for Physical AI Textbook Backend
+# https://render.com/docs/blueprint-spec
+
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: physical-ai-backend
+    runtime: python
+    region: oregon  # Choose closest region to your users
+    plan: free  # Free tier
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: QDRANT_URL
+        sync: false  # Set manually in Render dashboard
+      - key: QDRANT_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: CORS_ORIGINS
+        value: https://mubeen-fatima.github.io  # Update with your GitHub Pages URL
+      - key: LOG_LEVEL
+        value: INFO
+    healthCheckPath: /health
+    autoDeploy: true
