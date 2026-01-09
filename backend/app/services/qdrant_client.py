@@ -1,10 +1,17 @@
 """Qdrant vector store client with storage monitoring."""
 
+import asyncio
 import logging
 from typing import Optional
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
-from qdrant_client.http import models
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 
 from backend.app.config import settings
 
@@ -220,9 +227,6 @@ class QdrantVectorStore:
             logger.error(f"Failed to get storage usage: {str(e)}")
             return {"usage_bytes": 0, "point_count": 0}
 
-
-# Import asyncio for to_thread usage
-import asyncio
 
 # Global client instance
 qdrant_store = QdrantVectorStore()

@@ -55,7 +55,9 @@ class GeminiClient:
                     )
                     await asyncio.sleep(self.retry_delay)
                 else:
-                    logger.error(f"Embedding generation failed after {self.max_retries + 1} attempts")
+                    logger.error(
+                        f"Embedding generation failed after {self.max_retries + 1} attempts"
+                    )
                     raise
 
         # This should never be reached due to raise in except block
@@ -82,9 +84,7 @@ class GeminiClient:
             await asyncio.sleep(0.1)
         return embeddings
 
-    async def generate_response(
-        self, prompt: str, context: Optional[str] = None
-    ) -> str:
+    async def generate_response(self, prompt: str, context: Optional[str] = None) -> str:
         """
         Generate response using Gemini 1.5 Flash.
 
@@ -127,7 +127,9 @@ Please answer the question based on the context provided. If the question cannot
                     )
                     await asyncio.sleep(self.retry_delay)
                 else:
-                    logger.error(f"Response generation failed after {self.max_retries + 1} attempts")
+                    logger.error(
+                        f"Response generation failed after {self.max_retries + 1} attempts"
+                    )
                     raise
 
         # This should never be reached due to raise in except block

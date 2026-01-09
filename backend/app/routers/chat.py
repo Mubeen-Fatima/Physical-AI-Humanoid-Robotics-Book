@@ -67,7 +67,8 @@ async def chat_selected(request: ChatSelectedRequest) -> ChatResponse:
     Contextual help endpoint for selected text.
 
     Args:
-        request: ChatSelectedRequest with message, selected_text, source_chapter, and optional conversation_id
+        request: ChatSelectedRequest with message, selected_text,
+                 source_chapter, and optional conversation_id
 
     Returns:
         ChatResponse with targeted explanation, sources, and conversation_id

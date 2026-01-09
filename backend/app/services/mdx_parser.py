@@ -7,7 +7,7 @@ and extracts metadata for RAG vector storage.
 
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List
 from dataclasses import dataclass
 
 
