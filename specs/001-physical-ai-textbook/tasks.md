@@ -142,14 +142,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T059 [US3] Implement POST /api/chat/selected endpoint in backend/app/routers/chat.py accepting message, selected_text, source_chapter
-- [ ] T060 [US3] Modify rag.py to prioritize chunks from source_chapter when selected_text is provided
-- [ ] T061 [US3] Include selected_text in Gemini prompt for targeted explanation in rag.py
-- [ ] T062 [P] [US3] Create apps/learn-app/src/components/ChatWidget/TextSelectionHandler.tsx using Browser Selection API
-- [ ] T063 [US3] Show "Ask about this" tooltip on text selection in TextSelectionHandler.tsx
-- [ ] T064 [US3] On tooltip click, open ChatPanel with selected text and source chapter pre-filled
-- [ ] T065 [US3] Send selection context to POST /api/chat/selected endpoint from ChatPanel.tsx
-- [ ] T066 [US3] Handle multi-section text selection edge case (warn user or auto-trim)
+- [X] T059 [US3] Implement POST /api/chat/selected endpoint in backend/app/routers/chat.py accepting message, selected_text, source_chapter
+- [X] T060 [US3] Modify rag.py to prioritize chunks from source_chapter when selected_text is provided
+- [X] T061 [US3] Include selected_text in Gemini prompt for targeted explanation in rag.py
+- [X] T062 [P] [US3] Create apps/learn-app/src/components/ChatWidget/TextSelectionHandler.tsx using Browser Selection API
+- [X] T063 [US3] Show "Ask about this" tooltip on text selection in TextSelectionHandler.tsx
+- [X] T064 [US3] On tooltip click, open ChatPanel with selected text and source chapter pre-filled
+- [X] T065 [US3] Send selection context to POST /api/chat/selected endpoint from ChatPanel.tsx
+- [X] T066 [US3] Handle multi-section text selection edge case (warn user or auto-trim)
 
 **Checkpoint**: Text selection feature fully integrated with chatbot
 

@@ -327,6 +327,49 @@
   cursor: not-allowed;
 }
 
+/* Text Selection Tooltip */
+.selectionTooltip {
+  position: absolute;
+  z-index: 10000;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selectionTooltip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.tooltipIcon {
+  font-size: 16px;
+}
+
+.tooltipText {
+  white-space: nowrap;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .chatPanel {
@@ -339,5 +382,10 @@
 
   .messageContent {
     max-width: 80%;
+  }
+
+  .selectionTooltip {
+    font-size: 13px;
+    padding: 6px 12px;
   }
 }
